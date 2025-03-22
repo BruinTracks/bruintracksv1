@@ -1,0 +1,152 @@
+@import 'tailwindcss';
+
+/************ Custom Font ************/
+@font-face {
+  font-family: Centra;
+  src: url('./assets/font/CentraNo2-Bold.ttf');
+  font-weight: 700;
+}
+@font-face {
+  font-family: Centra;
+  src: url('./assets/font/CentraNo2-Medium.ttf');
+  font-weight: 500;
+}
+@font-face {
+  font-family: Centra;
+  src: url('./assets/font/CentraNo2-Book.ttf');
+  font-weight: 400;
+}
+
+/************ Default Css ************/
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 75px;
+}
+
+body {
+  font-weight: 400;
+  overflow-x: hidden;
+  position: relative;
+  background-color: #121212 !important;
+  color: #fff !important;
+  font-family: 'Centra', sans-serif !important;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  padding: 0;
+  line-height: normal;
+}
+
+p,
+a,
+li,
+button,
+ul {
+  line-height: normal;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: none;
+}
+
+img {
+  width: 100%;
+  height: auto;
+}
+
+button {
+  border: 0;
+  background-color: transparent;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+}
+
+@media (min-width: 1700px) {
+  main .container {
+    max-width: 100%;
+    padding: 0 150px;
+  }
+}
+
+/************ Banner Css ************/
+.banner {
+  margin-top: 0;
+  padding: 260px 0 100px 0;
+  background-image: url('./assets/banner-bg.png');
+  background-position: top center;
+  background-size: cover;
+}
+.banner .tagline {
+  background: linear-gradient(
+    90.21deg,
+    rgba(119, 137, 193, 0.5) -5.91%,
+    rgba(74, 47, 189, 0.5) 111.58%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  font-size: 23px;
+  margin-bottom: 16px;
+  display: inline-block;
+}
+
+.banner-img-container {
+  display: flex;
+  align-items: flex-start;
+  margin-left: auto; /* Moves image to the right */
+}
+
+.banner-row {
+  display: flex;
+  align-items: center; /* Centers items vertically */
+}
+
+.banner h1 {
+  font-size: 80px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  line-height: 1;
+  margin-bottom: 20px;
+  display: block;
+  padding-left: 20px;
+}
+.banner button {
+  color: #fff;
+  font-weight: 700;
+  font-size: 30px;
+  margin-top: 60px;
+  letter-spacing: 0.8px;
+  display: flex;
+  align-items: center;
+  padding-left: 20px;
+}
+.banner button svg {
+  font-size: 25px;
+  margin-left: 10px;
+  transition: 0.3s ease-in-out;
+  line-height: 1;
+}
+.banner button:hover svg {
+  margin-left: 25px;
+}
+
+.wrap {
+  border-right: 0.08em solid white;
+  color: rgb(252, 227, 0);
+}
+
+.bear-img {
+  height: 50px;
+  width: 50px;
+  transform: scale(1);
+}
