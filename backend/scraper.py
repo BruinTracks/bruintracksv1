@@ -147,18 +147,16 @@ def scrapeMajor(driver, majorToScrape):
         for item in structure_container.find_all("div", attrs={"data-level": "1"}, recursive=False):
             sections.append(parse_structure_item(item))
 
-    result_json = {"sections": sections}
-    filtered_json = remove_empty(result_json)
+    data_to_insert = {
+    "major_name": majorToScrape,         # Column storing the major identifier
+    "json_data": sections      # Column (of type jsonb or text) storing the JSON data
+    }
+    filtered_json = remove_empty(data_to_insert)
     with open(f"backend/majors/{majorToScrape}.json", "w") as f:
         f.write(json.dumps(filtered_json, indent=2))
     
-    data_to_insert = {
-    "major_name": majorToScrape,         # Column storing the major identifier
-    "json_data": filtered_json      # Column (of type jsonb or text) storing the JSON data
-    }
-
     # Insert the record into the 'majors' table.
-    response = supabase.table("majors").insert(data_to_insert).execute()
+    response = supabase.table("majors").insert(filtered_json).execute()
 
     # Check the response for success or errors.
     print(response)

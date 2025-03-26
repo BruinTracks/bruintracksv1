@@ -1,15 +1,15 @@
 {
-  "sections": [
+  "major_name": "ComputerScienceBS",
+  "json_data": [
     {
       "title": "Preparation for the Major",
-      "description": "Complete 18 courses as follows:",
+      "description": "Complete 17 courses as follows:",
       "courses": [
         "COM SCI 1 - Freshman Computer Science Seminar",
         "COM SCI 31 - Introduction to Computer Science I",
         "COM SCI 32 - Introduction to Computer Science II",
         "COM SCI 33 - Introduction to Computer Organization",
         "COM SCI 35L - Software Construction",
-        "EC ENGR 3 - Introduction to Electrical Engineering",
         "MATH 31A - Differential and Integral Calculus",
         "MATH 31B - Integration and Infinite Series",
         "MATH 32A - Calculus of Several Variables",
@@ -42,16 +42,13 @@
     },
     {
       "title": "The Major",
-      "description": "Complete 19 courses as follows: 10 required courses, one probability course, one capstone design course, one electrical and computer engineering elective, three computer science electives, and three courses (12 units) of technical breath.",
+      "description": "Complete the following seven required courses, one probability course, five courses (20 units) of computer science electives, three courses (12 units) of science and technology courses, and 12 units of technical breadth courses:",
       "courses": [
         "COM SCI 111 - Operating Systems Principles",
         "COM SCI 118 - Computer Network Fundamentals",
         "COM SCI 131 - Programming Languages",
         "COM SCI 180 - Introduction to Algorithms and Complexity",
-        "COM SCI 181 - Theory of Computing",
-        "EC ENGR 100 - Electrical and Electronic Circuits",
-        "EC ENGR 102 - Systems and Signals",
-        "EC ENGR 115C - Digital Electronic Circuits"
+        "COM SCI 181 - Theory of Computing"
       ],
       "options": [
         {
@@ -82,23 +79,24 @@
           ]
         },
         {
-          "title": "Capstone Design",
-          "description": "Complete the following course:",
+          "title": "Capstone Software Engineering or Design",
+          "description": "Select one course from:",
           "courses": [
+            "COM SCI 130 - Software Engineering",
             "COM SCI 152B - Digital Design Project Laboratory"
           ]
         },
         {
-          "title": "Electrical and Computer Engineering Elective",
-          "description": "Complete a minimum of 4 units and one elective course from Electrical and Computer Engineering 101A through M185."
+          "title": "Computer Science Electives",
+          "description": "Complete a minimum of 20 units and five elective courses from Computer Science 111 through CM187, and up to 8 units of Computer Science 188."
         },
         {
-          "title": "Computer Science Elective",
-          "description": "Complete a minimum of 12 units and three elective courses from Computer Science 111 through CM187, and up to 8 units of Computer Science 188."
+          "title": "Science and Technology",
+          "description": "Complete a minimum of 12 units and three science and technology courses (not used to satisfy other requirements) that may include 12 units of upper-division computer science courses or 12 units of courses selected from an approved list available in the Office of Academic and Student Affairs."
         },
         {
           "title": "Technical Breadth",
-          "description": "Complete 12 units of technical breadth courses from an approved list available in the Office of Academic and Student Affairs.\n\nStudents who want to deepen their knowledge of electrical engineering are encouraged to select that discipline as their technical breadth area."
+          "description": "Complete 12 units of technical breadth courses from an approved list available in the Office of Academic and Student Affairs."
         }
       ]
     }
