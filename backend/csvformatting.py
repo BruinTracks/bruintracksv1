@@ -1,7 +1,7 @@
 import pandas as pd
 import re
 
-df = pd.read_csv("backend/courses.csv")
+df = pd.read_csv("backend/data/winter_courses.csv")
 
 # Keep only main course sections (lectures with class_prim_act_fl == 'Y')
 lectures = df[df['class_prim_act_fl'] == 'Y'].copy()
@@ -24,5 +24,5 @@ selected_columns = [
 
 df_selected = lectures[selected_columns].drop_duplicates().reset_index()
 
-df_selected.to_csv('finalCourses.csv', index=False)
+df_selected.to_csv('backend/data/winter_courses.csv', index=False)
 

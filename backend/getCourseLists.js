@@ -151,7 +151,22 @@ async function extractCourses(chunks) {
   const requirements = await getMajorRequirements(majorName);
 
   if (requirements?.json_data) {
-    const chunks = await chunkMajorRequirements(majorName, requirements.json_data);
-    await extractCourses(chunks);
+      chunks = await chunkMajorRequirements(majorName, requirements.json_data);
+      await extractCourses(chunks);
   }
 })();
+
+
+// (async () => {
+//   const majorNames = ["ComputerScienceBS"];
+//   chunks = []
+//   for(major in majorNames){
+//     const requirements = await getMajorRequirements(majorName);
+
+//     if (requirements?.json_data) {
+//       const extraCourses = await chunkMajorRequirements(majorName, requirements.json_data);
+//       chunks.append(extraCourses)
+//   }
+// }
+// await extractCourses(chunks);
+// })();
