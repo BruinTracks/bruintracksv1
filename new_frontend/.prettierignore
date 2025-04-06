@@ -1,0 +1,7 @@
+node_modules
+dist
+build
+public
+vite.config.js
+package-lock.json
+yarn.lock
