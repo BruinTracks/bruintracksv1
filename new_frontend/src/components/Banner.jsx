@@ -52,8 +52,8 @@ export const Banner = () => {
   };
 
   return (
-    <section className="banner w-full" id="home">
-      <Container className="align-items-center w-full">
+    <section className="banner w-full h-full" id="home">
+      <Container className="align-items-center w-full h-full">
         <Row className="banner-row w-full">
           <Col xs={12} md={6} xl={7}>
             <h1>
@@ -64,8 +64,13 @@ export const Banner = () => {
               <ArrowRightCircle size={30} />
             </button>
           </Col>
-          <Col xs={12} md={6} xl={5} className="banner-img-container">
-            <img src={headerImg} alt="Bear"></img>
+          <Col
+            xs={12}
+            md={6}
+            xl={5}
+            className="banner-img-container w-full h-full"
+          >
+            <img src={headerImg} alt="Bear" style={{ height: '50%' }}></img>
           </Col>
         </Row>
       </Container>

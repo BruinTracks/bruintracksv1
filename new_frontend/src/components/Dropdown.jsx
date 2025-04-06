@@ -4,7 +4,12 @@ import '../main.jsx';
 import { motion } from 'framer-motion';
 import '../App.css';
 
-export const Dropdown = ({ options, onSelect, defaultOption, placeholder=null }) => {
+export const Dropdown = ({
+  options,
+  onSelect,
+  defaultOption,
+  placeholder = null,
+}) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const inputRef = useRef(null);
@@ -48,7 +53,7 @@ export const Dropdown = ({ options, onSelect, defaultOption, placeholder=null })
         ref={inputRef}
         id="dropdown"
         className="p-4 bg-gray-100 border border-gray-300 text-gray-900 text-xl rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 focus:bg-white"
-        placeholder={placeholder ? placeholder : "Select an option"}
+        placeholder={placeholder ? placeholder : 'Select an option'}
         value={selectedOption}
         onClick={toggleDropdown}
         readOnly

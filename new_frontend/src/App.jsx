@@ -6,6 +6,7 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { Banner } from './components/Banner';
 import { Form } from './components/Form';
 import { HomePage } from './components/HomePage';
+import CoursePlanDetailPage from "./components/CoursePlanDetailPage";
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
         <Route path="/" element={<Banner />} />
         <Route path="/Form" element={<Form />} />
         <Route path="/Home" element={<HomePage />} />
+        <Route path="/CoursePlanDetail" element={<CoursePlanDetailPage />} />
       </Routes>
     </Router>
   );

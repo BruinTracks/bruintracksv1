@@ -41,15 +41,10 @@ const classes = {
     'COM SCI 180',
     'COM SCI 111',
     'COM SCI 181',
-    'COM SCI 118'
+    'COM SCI 118',
   ],
-  'EC ENGR': [
-    'EC ENGR 3',
-    'EC ENGR 100',
-    'EC ENGR 102',
-    'EC ENGR 115C'
-  ],
-  'MATH': [
+  'EC ENGR': ['EC ENGR 3', 'EC ENGR 100', 'EC ENGR 102', 'EC ENGR 115C'],
+  MATH: [
     'MATH 31A',
     'MATH 31B',
     'MATH 32A',
@@ -59,9 +54,9 @@ const classes = {
     'MATH 42',
     'MATH 61',
     'MATH 70',
-    'MATH 115A'
-  ]
-}
+    'MATH 115A',
+  ],
+};
 
 const FormModal = ({ children, handleClick, handleBackClick }) => {
   return (
@@ -103,6 +98,10 @@ const Icebreaker = ({
   setName = () => {},
   school = '',
   setSchool = () => {},
+  gradQuarter = '',
+  setGradQuarter = () => {},
+  gradYear = undefined,
+  setGradYear = () => {},
   handleNextClick = () => {},
 }) => {
   return (
@@ -128,6 +127,24 @@ const Icebreaker = ({
           defaultOption={school}
         />
       </div>
+      <div className="flex flex-row justify-center items-center">
+        <label className="text-xl mr-5">Grad year:</label>
+        <InputField
+          type="number"
+          defaultValue={gradYear || null}
+          setValue={setGradYear}
+          required
+          placeholder="2027"
+        />
+      </div>
+      <div className="flex flex-row justify-center items-center">
+        <label className="text-xl mr-5">Grad quarter:</label>
+        <Dropdown
+          options={['Fall', 'Winter', 'Spring']}
+          onSelect={setGradQuarter}
+          defaultOption={gradQuarter}
+        />
+      </div>
     </FormModal>
   );
 };
@@ -135,22 +152,18 @@ const Icebreaker = ({
 const InfoDetail = ({
   handleBackClick = () => {},
   handleNextClick = () => {},
-  gradQuarter = '',
-  setGradQuarter = () => {},
-  gradYear = -1,
-  setGradYear = () => {},
   major = '',
   setMajor = () => {},
-  wantsDbMajor = false,
+  wantsDbMajor = null,
   setWantsDbMajor = () => {},
-  wantsMinor = false,
+  wantsMinor = null,
   setWantsMinor = () => {},
   doubleMajor = '',
   setDoubleMajor = () => {},
   minor = '',
   setMinor = () => {},
-  wantsSummerClasses = false,
-  setSummerClasses = () => {},
+  wantsSummerClasses = null,
+  setWantsSummerClasses = () => {},
   maxWorkload = -1,
   setMaxWorkload = () => {},
 }) => {
@@ -165,6 +178,10 @@ const InfoDetail = ({
   const showMinor = (visible) => {
     setWantsMinor(visible == 'Yep');
     setMinorSelect(visible == 'Yep');
+  };
+
+  const setSummerClassesOn = (visible) => {
+    setWantsSummerClasses(visible == 'Yep');
   };
 
   return (
@@ -193,8 +210,14 @@ const InfoDetail = ({
         <label className="text-xl mr-5">Summer classes?</label>
         <Dropdown
           options={['Yep', 'No, thanks']}
-          onSelect={setSummerClasses}
-          defaultOption={wantsSummerClasses}
+          onSelect={setSummerClassesOn}
+          defaultOption={
+            wantsSummerClasses != null
+              ? wantsSummerClasses
+                ? 'Yep'
+                : 'No, thanks'
+              : undefined
+          }
         />
       </div>
       <div className="flex flex-row justify-center items-center">
@@ -202,7 +225,13 @@ const InfoDetail = ({
         <Dropdown
           options={['Yep', 'No, thanks']}
           onSelect={showDbMajor}
-          defaultOption={wantsDbMajor}
+          defaultOption={
+            wantsDbMajor != null
+              ? wantsDbMajor
+                ? 'Yep'
+                : 'No, thanks'
+              : undefined
+          }
         />
       </div>
       <div
@@ -221,7 +250,9 @@ const InfoDetail = ({
         <Dropdown
           options={['Yep', 'No, thanks']}
           onSelect={showMinor}
-          defaultOption={wantsMinor}
+          defaultOption={
+            wantsMinor != null ? (wantsMinor ? 'Yep' : 'No, thanks') : undefined
+          }
         />
       </div>
       <div
@@ -235,12 +266,81 @@ const InfoDetail = ({
   );
 };
 
-/*const ClassSelect = (classesList = [], setClassesList = () => {}) => {
-  const [classes, setClasses] = useState(classes);
-  
-};*/
+const SchedulePreferences = ({
+  wantsMonday,
+  setWantsMonday,
+  wantsFriday,
+  setWantsFriday,
+  earliestClassTime,
+  setEarliestClassTime,
+  latestClassTime,
+  setLatestClassTime,
+  handleNextClick = () => {},
+  handleBackClick = () => {}
+}) => {
+  const setMonday = (option) => {
+    setWantsMonday(option == 'Yep');
+  };
 
-const ClassSelect = ({ items, defaultDept="COM SCI", columns = 4, handleNextClick = () => {}, handleBackClick = () => {} }) => {
+  const setFriday = (option) => {
+    setWantsFriday(option == 'Yep');
+  };
+
+  return (
+    <FormModal handleClick={handleNextClick} handleBackClick={handleBackClick}>
+      <div className="p-4">
+        <div className="flex flex-row justify-center items-center">
+          <label className="text-xl mr-5">Okay with Monday classes?</label>
+          <Dropdown
+            options={['Yep', 'No, thanks']}
+            onSelect={setMonday}
+            defaultOption={
+              wantsMonday != null ? (wantsMonday ? 'Yep' : 'No, thanks') : undefined
+            }
+          />
+        </div>
+        <div className="flex flex-row justify-center items-center">
+          <label className="text-xl mr-5">Okay with Friday classes?</label>
+          <Dropdown
+            options={['Yep', 'No, thanks']}
+            onSelect={setFriday}
+            defaultOption={
+              wantsFriday != null ? (wantsFriday ? 'Yep' : 'No, thanks') : undefined
+            }
+          />
+        </div>
+      </div>
+      <div className="flex flex-row justify-center items-center">
+        <label className="text-xl mr-5">Earliest start time:</label>
+        <InputField
+          type="time"
+          defaultValue={earliestClassTime}
+          setValue={setEarliestClassTime}
+          required
+          placeholder="HH:MM"
+        />
+      </div>
+      <div className="flex flex-row justify-center items-center">
+        <label className="text-xl mr-5">Latest end time:</label>
+        <InputField
+          type="time"
+          defaultValue={latestClassTime}
+          setValue={setLatestClassTime}
+          required
+          placeholder="HH:MM"
+        />
+      </div>
+    </FormModal>
+  )
+};
+
+const ClassSelect = ({
+  items,
+  defaultDept = 'COM SCI',
+  columns = 4,
+  handleNextClick = () => {},
+  handleBackClick = () => {},
+}) => {
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [dept, setDept] = useState(defaultDept);
 
@@ -258,41 +358,136 @@ const ClassSelect = ({ items, defaultDept="COM SCI", columns = 4, handleNextClic
 
   return (
     <FormModal handleClick={handleNextClick} handleBackClick={handleBackClick}>
-    <div className="p-4">
-    <Dropdown options={["ALL", "COM SCI", "EC ENGR", "MATH"]} onSelect={setDept} defaultOption={dept} placeholder={"Department"} />
+      <div className="p-4">
+        <Dropdown
+          options={['ALL', 'COM SCI', 'EC ENGR', 'MATH']}
+          onSelect={setDept}
+          defaultOption={dept}
+          placeholder={'Department'}
+        />
 
-      <div
-        className={`grid gap-2`}
-        style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
-      >
-        {(dept != "ALL" ? classes[dept] : Object.values(classes).flat()).map((item, index) => (
-          <div
-            key={index}
-            className={`pl-4 pr-4 pt-2 pb-2 border rounded-lg text-center cursor-pointer transition ${
-              selectedItems.has(item) ? "bg-blue-500 text-white" : "bg-gray-100"
-            }`}
-            onClick={() => toggleItem(item)}
-          >
-            {item}
-          </div>
-        ))}
-      </div>
+        <div
+          className={`grid gap-2`}
+          style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+        >
+          {(dept != 'ALL' ? classes[dept] : Object.values(classes).flat()).map(
+            (item, index) => (
+              <div
+                key={index}
+                className={`pl-4 pr-4 pt-2 pb-2 border rounded-lg text-center cursor-pointer transition ${
+                  selectedItems.has(item)
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100'
+                }`}
+                onClick={() => toggleItem(item)}
+              >
+                {item}
+              </div>
+            )
+          )}
+        </div>
 
-      <div className="mt-4 p-2 border rounded">
-        <strong>Selected Items:</strong> {Array.from(selectedItems).join(", ") || "None"}
+        <div className="mt-4 p-2 border rounded">
+          <strong>In-progress/completed classes:</strong>{' '}
+          {Array.from(selectedItems).join(', ') || 'None'}
+        </div>
       </div>
-    </div>
     </FormModal>
   );
-}
+};
 
-const SummaryView = ({ handleBackClick = () => {} }) => {
+const SummaryView = ({
+  data = {},
+  handleBackClick = () => {},
+  setStep = () => {},
+}) => {
   const navigate = useNavigate();
-  console.log(handleBackClick)
-  return <FormModal handleClick={() => navigate("/Home")} handleBackClick={handleBackClick}>
-    Hello
-
-  </FormModal>;
+  return (
+    <FormModal
+      handleClick={() => navigate('/Home')}
+      handleBackClick={handleBackClick}
+    >
+      <p className="text-4xl font-bold mb-4">Registration Summary</p>
+      <div className="flex flex-col">
+        <motion.div
+          className="flex flex-col bg-gray-300 rounded-xl p-5 mb-5"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 0.75, y: 0 }}
+          whileHover={{ opacity: 1, y: 20 }}
+        >
+          <a onClick={() => setStep(1)} className="cursor-pointer">
+            Edit
+          </a>
+          <span>
+            <strong>Full name:</strong> {data.fullName}
+          </span>
+          <span>
+            <strong>School:</strong> {data.school}
+          </span>
+          <span>
+            <strong>Graduation:</strong> {data.gradQuarter} {data.gradYear}
+          </span>
+        </motion.div>
+        <motion.div
+          className="flex flex-col bg-gray-300 rounded-xl p-5 mb-5"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 0.75, y: 0 }}
+          whileHover={{ opacity: 1, y: 20 }}
+        >
+          <a onClick={() => setStep(2)} className="cursor-pointer underline">
+            Edit
+          </a>
+          <span>
+            <strong>Major:</strong> {data.major}
+          </span>
+          {data.wantsDbMajor ? (
+            <span>
+              <strong>Double major:</strong> {data.doubleMajor}
+            </span>
+          ) : (
+            <></>
+          )}
+          {data.wantsMinor ? (
+            <span>
+              <strong>Minor:</strong> {data.minor}
+            </span>
+          ) : (
+            <></>
+          )}
+          <span>
+            <strong>Summer Classes?</strong>{' '}
+            {data.wantsSummerClasses ? 'Yes' : 'No'}
+          </span>
+          <span>
+            <strong>Max workload:</strong> {data.maxWorkload}
+          </span>
+        </motion.div>
+        <motion.div
+          className="flex flex-col bg-gray-300 rounded-xl p-5"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 0.75, y: 0 }}
+          whileHover={{ opacity: 1, y: 20 }}
+        >
+          <a onClick={() => setStep(3)} className="cursor-pointer underline">
+            Edit
+          </a>
+          <span>
+            <strong>Monday classes?</strong> {data.wantsMonday ? 'Ok' : 'No'}
+          </span>
+          <span>
+            <strong>Friday classes?</strong> {data.wantsFriday ? 'Ok' : 'No'}
+          </span>
+          <span>
+            <strong>Earliest start time:</strong>{' '}
+            {data.earliestClassTime}
+          </span>
+          <span>
+            <strong>Latest end time:</strong> {data.latestClassTime}
+          </span>
+        </motion.div>
+      </div>
+    </FormModal>
+  );
 };
 
 export const Form = () => {
@@ -303,17 +498,21 @@ export const Form = () => {
   const [fullName, setFullName] = useState('');
   const [school, setSchool] = useState('');
   const [gradQuarter, setGradQuarter] = useState('');
-  const [gradYear, setGradYear] = useState(-1);
+  const [gradYear, setGradYear] = useState(null);
   const [major, setMajor] = useState('');
-  const [wantsDbMajor, setWantsDbMajor] = useState(false);
+  const [wantsDbMajor, setWantsDbMajor] = useState(null);
   const [doubleMajor, setDoubleMajor] = useState('');
-  const [wantsMinor, setWantsMinor] = useState(false);
+  const [wantsMinor, setWantsMinor] = useState(null);
   const [minor, setMinor] = useState('');
-  const [wantsSummerClasses, setWantsSummerClasses] = useState(false);
+  const [wantsSummerClasses, setWantsSummerClasses] = useState(null);
   const [maxWorkload, setMaxWorkload] = useState(-1);
+  const [wantsMonday, setWantsMonday] = useState(true);
+  const [wantsFriday, setWantsFriday] = useState(true);
+  const [earliestClassTime, setEarliestClassTime] = useState('');
+  const [latestClassTime, setLatestClassTime] = useState('');
 
   return (
-    <div className="w-screen h-screen flex justify-center items-center">
+    <div className="w-screen h-screen flex justify-center items-center bg-gray-900">
       {step == 1 ? (
         <Icebreaker
           handleNextClick={handleNextClick}
@@ -321,6 +520,18 @@ export const Form = () => {
           setName={setFullName}
           school={school}
           setSchool={setSchool}
+          gradQuarter={gradQuarter}
+          setGradQuarter={setGradQuarter}
+          gradYear={gradYear}
+          setGradYear={setGradYear}
+        />
+      ) : (
+        <></>
+      )}
+      {step == 2 ? (
+        <InfoDetail
+          handleNextClick={handleNextClick}
+          handleBackClick={handleBackClick}
           gradQuarter={gradQuarter}
           setGradQuarter={setGradQuarter}
           gradYear={gradYear}
@@ -343,22 +554,55 @@ export const Form = () => {
       ) : (
         <></>
       )}
-      {step == 2 ? (
-        <InfoDetail
+      {step == 3 ? (
+        <SchedulePreferences
+          wantsMonday={wantsMonday}
+          setWantsMonday={setWantsMonday}
+          wantsFriday={wantsFriday}
+          setWantsFriday={setWantsFriday}
+          earliestClassTime={earliestClassTime}
+          setEarliestClassTime={setEarliestClassTime}
+          setLatestClassTime={setLatestClassTime}
           handleNextClick={handleNextClick}
           handleBackClick={handleBackClick}
         />
       ) : (
         <></>
       )}
-      {step == 3 ? (
-        <ClassSelect handleNextClick={handleNextClick} handleBackClick={handleBackClick} items={["hey", "COM SCI 35L", "hi", "1", "2", "3", "4", "5"]}/>
+      {step == 4 ? (
+        <ClassSelect
+          handleNextClick={handleNextClick}
+          handleBackClick={handleBackClick}
+          items={['hey', 'COM SCI 35L', 'hi', '1', '2', '3', '4', '5']}
+        />
       ) : (
         <></>
       )}
-      {step == 4 ? (
-        <SummaryView handleBackClick={handleBackClick} />
-      ) : <></>}
+      {step == 5 ? (
+        <SummaryView
+          handleBackClick={handleBackClick}
+          setStep={setStep}
+          data={{
+            fullName: fullName,
+            school: school,
+            gradQuarter: gradQuarter,
+            gradYear: gradYear,
+            major: major,
+            doubleMajor: doubleMajor,
+            wantsDbMajor: wantsDbMajor,
+            minor: minor,
+            wantsMinor: wantsMinor,
+            wantsSummerClasses: wantsSummerClasses,
+            maxWorkload: maxWorkload,
+            wantsMonday: wantsMonday,
+            wantsFriday: wantsFriday,
+            earliestClassTime: earliestClassTime,
+            latestClassTime: latestClassTime
+          }}
+        />
+      ) : (
+        <></>
+      )}
     </div>
   );
 };
