@@ -11,6 +11,8 @@ import { Card } from './Card';
 import { Button } from './Button';
 import { Chatbox } from './Chatbox';
 import { FullCoursePlan } from './FullCoursePlan';
+import { handleSignOut } from '../supabaseClient';
+
 const schedule = {
   Monday: [
     { time: '9:00 AM', course: 'CS 31 - Introduction to Computer Science' },
@@ -46,6 +48,7 @@ export const HomePage = () => {
       >
         My Dashboard
       </motion.h1>
+      <button onClick={handleSignOut}>SIGN OUT</button>
       <div className="flex flex-col items-stretch mr-10">
         <motion.div
           className="flex-1 mt-6 space-y-6 ml-10 mr-10 bg-gray-500 p-5 items-stretch rounded-2xl"

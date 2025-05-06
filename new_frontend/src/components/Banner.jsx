@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Container, Row, Col } from 'react-bootstrap';
 import { ArrowRightCircle } from 'react-bootstrap-icons';
 import headerImg from '../assets/headerImg.png';
+import GoogleAuthButton from './GoogleAuthButton';
 
 export const Banner = () => {
   const navigate = useNavigate();
@@ -59,10 +60,10 @@ export const Banner = () => {
             <h1>
               Say No to <span className="wrap">{text}</span>
             </h1>
-            <button onClick={handleClick}>
+            <GoogleAuthButton>
               Get Started with BruinBot!
               <ArrowRightCircle size={30} />
-            </button>
+            </GoogleAuthButton>
           </Col>
           <Col
             xs={12}
