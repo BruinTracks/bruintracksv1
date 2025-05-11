@@ -22,7 +22,7 @@ from datetime import datetime, date
 # for now using pandas, will transfer to calling supabase
 
 # Load course list
-with open("backend/final_course_list.json") as f:
+with open("scripts/final_course_list.json") as f:
     courses = json.load(f)
 available_courses = courses['courses']
 
@@ -90,11 +90,30 @@ def int_to_time_str(t):
 def normalize_course_id(course_id):
     return course_id.strip().lower().replace("&", "and")
 
-def can_take(completed, reqs):
+def can_take(completed, reqs, currently_scheduled):
     return (
-        evaluate_condition(reqs.get("prerequisites"), completed) and
-        evaluate_condition(reqs.get("corequisites"), completed)
+        evaluate_condition(reqs.get("prerequisites"), completed) and evaluate_coreq(reqs.get("corequisites"), completed, currently_scheduled)
     )
+
+def evaluate_coreq(cond, completed, term_scheduled):
+    if not cond:
+        return True
+    if isinstance(cond, str):
+        norm_cond = normalize_course_id(cond)
+        match = df[df['full_course_id'].apply(lambda x: normalize_course_id(str(x))) == norm_cond]
+        if match.empty:
+            if cond in ["Mathematics 1", "Math Diagnostic Test"]:
+                return True
+            print(f"⚠️ Could not find course in catalog: {cond}")
+            return False
+        short_course_id = match.iloc[0]['course_id']
+        return short_course_id in completed
+    if cond.get("type") == "AND":
+        return all(evaluate_coreq(c, completed) or c in term_scheduled for c in cond["conditions"])
+    if cond.get("type") == "OR":
+        return any(evaluate_coreq(c, completed) or c in term_scheduled for c in cond["conditions"])
+    return False
+
 
 def evaluate_condition(cond, completed):
     if not cond:
@@ -216,7 +235,7 @@ def scheduler(preferred_start, preferred_end, completed, grad_year, grad_quarter
                 print(f"⚠️ Failed to parse requisites for {course}: {e}")
                 continue
 
-            if can_take(completed, reqs):
+            if can_take(completed, reqs, term_courses):
                 time_range = course_fits_time(course, preferred_start, preferred_end)
                 if time_range:
                     print(f"✅ Adding {course} (requisites & time OK)")
