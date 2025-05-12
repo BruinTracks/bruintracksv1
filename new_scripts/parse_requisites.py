@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 import os
 
 # —— CONFIG ——
-CSV_PATH = 'new_scripts/ucla_courses.csv'
+CSV_PATH = 'new_scripts/ucla_courses2.csv'
 load_dotenv()
 url = os.getenv("SUPABASE_URL")
 key = os.getenv("SUPABASE_ANON_KEY")
@@ -53,6 +53,7 @@ for s in subjects:
 with open('new_scripts/output.txt', "a") as f:
     for full_name, code in subj_name_to_code.items():
         f.write(f"{full_name}, {code}")
+
 # —— STEP 2: Rebuild course mappings —— 
 def fetch_all_courses(batch_size=200):
     all_courses = []
@@ -190,12 +191,20 @@ for course_key, raw in raw_reqs.items():
             "is_corequisite":      req["is_corequisite"],
             "min_grade":           req["min_grade"]
         })
+    
+    # de-duplicate by (course_id, requisite_course_id)
+    unique = {}
+    for r in batch:
+        key = (r["course_id"], r["requisite_course_id"])
+        unique[key] = r   # later entries simply overwrite earlier ones
+
+    batch = list(unique.values())
 
     if batch:
         safe_execute(
             supabase
               .table("course_requisites")
-              .insert(batch, returning="representation")
+              .upsert(batch, on_conflict="course_id,requisite_course_id",returning="representation")
         )
         print(f"✅  Inserted {len(batch)} requisites for {course_key}")
 
