@@ -130,8 +130,8 @@ def build_schedule(start_y:int, start_q:str,
     # Supabase setup
     supa = create_client(SUPABASE_URL, SUPABASE_KEY)
     term_rows = safe_execute(supa.table("terms").select("term_name,id")).data
-    db_map = {r['term_name']:r['id'] for r in term_rows}
-    idx2db = [db_map.get(lbl) for lbl in terms]
+    db_map = {r['term_name'].split()[0]:r['id'] for r in term_rows}
+    idx2db = [db_map.get(lbl.split()[0]) for lbl in terms]
 
     # subject mappings
     subs = safe_execute(supa.table("subjects").select("id,code,name")).data
