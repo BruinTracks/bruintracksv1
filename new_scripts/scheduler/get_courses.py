@@ -1,14 +1,14 @@
 import os
 import re
 import time
+import json
 from datetime import datetime
 from typing import Dict, List, Tuple
-import pprint
+from itertools import combinations
 from dotenv import load_dotenv
 from supabase import create_client
-from itertools import combinations
 
-# ───── CONFIGURATION ─────
+# ───── CONFIG ─────
 load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
@@ -24,20 +24,24 @@ COURSES_TO_SCHEDULE = [
     "C&EE|110", "COM SCI|130"
 ]
 
+# Transcript of completed courses with optional grades (None means not completed)
+# Example: {"COM SCI|31": "B+", "MATH|31A": None}
+TRANSCRIPT: Dict[str, str] = {}
+
 # Scheduling parameters
 MAX_COURSES_PER_TERM = 5
 LEAST_COURSES_PER_TERM = 3
 FILLER_COURSE = "FILLER"
-ALLOW_WARNINGS = False  # if False, treat 'W' requisites as hard ('R')
+ALLOW_WARNINGS = False  # if False, treat 'W' requisites like 'R'
 
-# Preferences apply only to the first (detailed) term
+# Preferences for first term scoring
 PREF_EARLIEST = datetime.strptime("09:00", "%H:%M").time()
 PREF_LATEST   = datetime.strptime("12:00", "%H:%M").time()
 PREF_NO_DAYS  = {"F"}
-PREF_BUILDINGS = {"MS","SCI"}
+PREF_BUILDINGS = {"MS", "SCI"}
 PREF_INSTRUCTORS = set()
 
-# Grade ordering
+# Grade ordering for comparisons
 GRADE_ORDER = [
     "A+","A","A-","B+","B","B-",
     "C+","C","C-","D+","D","D-","F"
@@ -45,27 +49,25 @@ GRADE_ORDER = [
 
 
 def to_dnf(node: Dict) -> List[List[Dict]]:
-    """
-    Convert a JSON prereq tree into DNF: list of AND-clauses.
-    """
+    """Convert JSON prereq tree into DNF: list of AND-clauses."""
     if 'and' in node:
         prods = to_dnf(node['and'][0])
         for child in node['and'][1:]:
             prods = [a + b for a in prods for b in to_dnf(child)]
         return prods
     if 'or' in node:
-        groups = []
+        res: List[List[Dict]] = []
         for child in node['or']:
-            groups.extend(to_dnf(child))
-        return groups
+            res.extend(to_dnf(child))
+        return res
     return [[node]]
 
 
-def safe_execute(request, retries: int = 3, backoff: float = 0.2):
-    """Retry wrapper for Supabase requests."""
+def safe_execute(req, retries: int = 3, backoff: float = 0.2):
+    """Retry wrapper for Supabase calls."""
     for attempt in range(retries):
         try:
-            return request.execute()
+            return req.execute()
         except Exception:
             if attempt == retries - 1:
                 raise
@@ -81,19 +83,18 @@ def meets_min_grade(obtained: str, required: str) -> bool:
 
 
 def create_term_sequence(start_q: str, start_y: int, end_q: str, end_y: int) -> List[str]:
-    """Generate term labels from start to end, inclusive."""
-    seasons = ["Fall","Winter","Spring"]
-    seq = []
+    """Generate term labels from start to end in academic order."""
+    seasons = ["Fall", "Winter", "Spring"]
+    seq: List[str] = []
     idx = seasons.index(start_q)
     year = start_y
-    end_idx = seasons.index(end_q)
     while True:
         seq.append(f"{seasons[idx]} {year}")
-        if idx == end_idx and year == end_y:
+        if seasons[idx] == end_q and year == end_y:
             break
-        idx = (idx + 1) % 3
-        if idx == 0:
+        if seasons[idx] == "Fall":
             year += 1
+        idx = (idx + 1) % len(seasons)
     return seq
 
 
@@ -102,17 +103,27 @@ def quarter_prefixes(
     k: int,
     allow_warnings: bool = True
 ) -> List[List[str]]:
-    """Return all size-k sets of courses with no hard prereqs."""
+    """Return all size-k sets of courses ready for first term."""
+    # Build node set excluding completed
     nodes = set(prereq_logic.keys())
     for reqs in prereq_logic.values():
-        for c, _, _, _ in reqs:
+        for c, *_ in reqs:
             nodes.add(c)
+    completed = {c for c, g in TRANSCRIPT.items() if g is not None}
+    nodes -= completed
+
+    # Compute indegree (hard prereqs and coreqs)
     indegree = {n: 0 for n in nodes}
     for course, reqs in prereq_logic.items():
-        for req_c, typ, _, sev in reqs:
-            if typ == 'prerequisite' and (sev == 'R' or (sev == 'W' and not allow_warnings)):
+        if course not in indegree:
+            continue
+        for rc, typ, _, sev in reqs:
+            if rc in indegree and typ in ('prerequisite','corequisite') and (sev == 'R' or (sev == 'W' and not allow_warnings)):
                 indegree[course] += 1
-    available = sorted([n for n, d in indegree.items() if d == 0])
+
+    available = sorted(n for n, d in indegree.items() if d == 0)
+    if len(available) < k:
+        return [available]
     return [list(cmb) for cmb in combinations(available, k)]
 
 
@@ -122,11 +133,11 @@ def build_schedule(
     end_y: int,
     end_q: str,
     allow_warnings: bool = True
-) -> Dict:
-    # 1) Term labels & init
+) -> Dict[str, object]:
+    # 1) Term labels
     term_labels = create_term_sequence(start_q, start_y, end_q, end_y)
 
-    # 2) Supabase client & term-id mapping
+    # 2) Supabase client & term-ID map
     supa = create_client(SUPABASE_URL, SUPABASE_KEY)
     term_rows = safe_execute(supa.table("terms").select("term_name,id")).data
     db_map = {r['term_name']: r['id'] for r in term_rows}
@@ -138,11 +149,13 @@ def build_schedule(
     id2sub = {s['id']: s['code'] for s in subs}
     name2sub = {re.sub(r"\s*\(.*\)$", "", s['name']).strip().upper(): s['code'] for s in subs}
 
-    # 4) Expand prerequisites via BFS + DNF
-    required = set(COURSES_TO_SCHEDULE)
-    transcript: Dict[str, str] = {}
+    # 4) Expand prerequisites via BFS + DNF, excluding completed
+    completed = {c for c, g in TRANSCRIPT.items() if g is not None}
+    required = set(COURSES_TO_SCHEDULE) - completed
+    transcript = TRANSCRIPT.copy()
+
     def fetch_courses(keys: List[str]):
-        pairs = [k.split("|", 1) for k in keys]
+        pairs = [k.split("|",1) for k in keys]
         ids, nums = zip(*[(sub2id[d], n) for d, n in pairs])
         return safe_execute(
             supa.table("courses")
@@ -154,20 +167,18 @@ def build_schedule(
     prereq_logic: Dict[str, List[Tuple[str,str,str,str]]] = {}
     queue = list(required)
     while queue:
-        vkey = queue.pop(0)
-        rows = fetch_courses([vkey])
-        if not rows:
-            continue
-        raw = rows[0].get('course_requisites') or {}
-        clauses = to_dnf(raw)
-        best_clause, best_missing, min_missing = [], [], float('inf')
+        course = queue.pop(0)
+        rows = fetch_courses([course])
+        raw = rows[0].get('course_requisites') if rows else {}
+        clauses = to_dnf(raw or {})
+        best_clause, best_missing, min_miss = [], [], float('inf')
         for clause in clauses:
             parsed, missing = [], []
             for leaf in clause:
                 if 'course' not in leaf:
                     continue
                 txt = leaf['course'].strip().rstrip(')')
-                parts = txt.rsplit(' ', 1)
+                parts = txt.rsplit(' ',1)
                 if len(parts) != 2:
                     continue
                 dept, num = parts
@@ -175,44 +186,40 @@ def build_schedule(
                 if not code:
                     continue
                 ukey = f"{code}|{num.upper()}"
-                parsed.append((ukey, leaf['relation'], leaf.get('min_grade', 'D-'), leaf.get('severity')))
-                if not meets_min_grade(transcript.get(ukey, 'F'), leaf.get('min_grade', 'F')):
+                parsed.append((ukey, leaf['relation'], leaf.get('min_grade','D-'), leaf.get('severity')))
+                if not meets_min_grade(transcript.get(ukey,'F'), leaf.get('min_grade','F')):
                     missing.append(ukey)
             if not missing:
                 best_clause, best_missing = parsed, []
                 break
-            if len(missing) < min_missing:
-                best_clause, best_missing, min_missing = parsed, missing, len(missing)
-        prereq_logic[vkey] = best_clause
+            if len(missing) < min_miss:
+                best_clause, best_missing, min_miss = parsed, missing, len(missing)
+        prereq_logic[course] = best_clause
         for u in best_missing:
             if u not in required:
                 required.add(u)
                 queue.append(u)
 
-    # 5) Fetch all course & section data
+    # 5) Fetch all section data
     all_courses = fetch_courses(list(required))
     cid2key = {c['id']: f"{id2sub[c['subject_id']]}|{c['catalog_number']}" for c in all_courses}
     secs = safe_execute(
-        supa.table("sections")
-            .select(
-                "id,course_id,term_id,section_code,is_primary,activity," +
-                "enrollment_cap,enrollment_total,waitlist_cap,waitlist_total"
-            )
-            .in_("course_id", [c['id'] for c in all_courses])
+        supa.table("sections").select(
+            "id,course_id,term_id,section_code,is_primary,activity,"
+            "enrollment_cap,enrollment_total,waitlist_cap,waitlist_total"
+        ).in_("course_id", [c['id'] for c in all_courses])
     ).data
     mt = safe_execute(
-        supa.table("meeting_times")
-            .select("section_id,days_of_week,start_time,end_time,building,room")
+        supa.table("meeting_times").select("section_id,days_of_week,start_time,end_time,building,room")
             .in_("section_id", [s['id'] for s in secs])
     ).data
     si = safe_execute(
-        supa.table("section_instructors")
-            .select("section_id,instructor_id")
+        supa.table("section_instructors").select("section_id,instructor_id")
             .in_("section_id", [s['id'] for s in secs])
     ).data
 
-    # Build maps for meeting times & instructors
-    mt_by_sec: Dict[int, List[Dict]] = {}
+    # Build maps
+    mt_by_sec, si_by_sec = {}, {}
     for m in mt:
         m['start_time'] = datetime.strptime(m['start_time'], "%H:%M:%S").time()
         m['end_time']   = datetime.strptime(m['end_time'],   "%H:%M:%S").time()
@@ -222,11 +229,9 @@ def build_schedule(
         supa.table("instructors").select("id,name").in_("id", list(instr_ids))
     ).data
     instr_map = {r['id']: r['name'] for r in instr_rows}
-    si_by_sec: Dict[int, List[str]] = {}
     for r in si:
         si_by_sec.setdefault(r['section_id'], []).append(instr_map[r['instructor_id']])
 
-    # 6) Group sections by course
     sections_by_course: Dict[str, List[Dict]] = {}
     for s in secs:
         key = cid2key[s['course_id']]
@@ -236,160 +241,124 @@ def build_schedule(
         s['instructors'] = si_by_sec.get(s['id'], [])
         sections_by_course.setdefault(key, []).append(s)
 
-            # 7) First-term prefix selection
+    # 6) First term selection
     first_term = term_labels[0]
-    # generate full-size prefixes
     prefixes = quarter_prefixes(prereq_logic, MAX_COURSES_PER_TERM, allow_warnings)
-    # if no full-size due to strict warnings, allow smaller set
-    if not prefixes:
-        # recompute available under allow_warnings
-        nodes = set(prereq_logic.keys())
-        for reqs in prereq_logic.values():
-            for c, _, _, _ in reqs:
-                nodes.add(c)
-        indegree = {n: 0 for n in nodes}
-        for course, reqs in prereq_logic.items():
-            for req_c, typ, _, sev in reqs:
-                if typ == 'prerequisite' and (sev == 'R' or (sev == 'W' and not allow_warnings)):
-                    indegree[course] += 1
-        available = sorted([n for n, d in indegree.items() if d == 0])
-        k2 = min(len(available), MAX_COURSES_PER_TERM)
-        prefixes = [available[:k2]]
+    # filter prefixes for actual sections
     detailed_id = idx2db[0]
-    schedule: Dict = {}
-    if detailed_id is not None:
-        # scoring as before...
-        def score_and_select(prefix: List[str]) -> Tuple[int, Dict[str, Dict]]:
-            total = 0
-            sel: Dict[str, Dict] = {}
-            for course in prefix:
-                # Lecture scoring
-                best_sec = None
-                best_sc = -1
-                for sec in sections_by_course.get(course, []):
-                    if sec['term_id'] != detailed_id or not sec['is_primary']:
+    if detailed_id:
+        valid = []
+        for p in prefixes:
+            if all(any(sec['term_id']==detailed_id and sec['is_primary'] for sec in sections_by_course.get(c, [])) for c in p):
+                valid.append(p)
+        if valid:
+            prefixes = valid
+    if not prefixes:
+        available = [c for c in sections_by_course if any(sec['term_id']==detailed_id and sec['is_primary'] for sec in sections_by_course[c])] if detailed_id else list(sections_by_course)
+        prefixes = [sorted(available)[:MAX_COURSES_PER_TERM]]
+
+    # score & pick best prefix
+    def score_and_select(prefix: List[str]) -> Tuple[int, Dict[str, Dict]]:
+        total = 0
+        sel = {}
+        for course in prefix:
+            best_sec, best_sc = None, -1
+            for sec in sections_by_course.get(course, []):
+                if sec['term_id'] != detailed_id or not sec['is_primary']:
+                    continue
+                sc = sum((PREF_EARLIEST <= m['start_time'] <= PREF_LATEST) +
+                         (PREF_EARLIEST <= m['end_time'] <= PREF_LATEST) +
+                         (m['building'] in PREF_BUILDINGS) +
+                         (set(m['days_of_week']).isdisjoint(PREF_NO_DAYS)) for m in sec['times'])
+                if any(i in PREF_INSTRUCTORS for i in sec['instructors']):
+                    sc += 1
+                if sc > best_sc:
+                    best_sc, best_sec = sc, sec
+            best_disc, best_dsc = None, -1
+            if best_sec:
+                pref = best_sec['section_code'].split('-')[0]
+                for dsec in sections_by_course.get(course, []):
+                    if dsec['term_id'] != detailed_id or dsec['is_primary']:
                         continue
-                    sc_time = sum((PREF_EARLIEST <= m['start_time'] <= PREF_LATEST) +
-                                  (PREF_EARLIEST <= m['end_time'] <= PREF_LATEST) +
-                                  (m['building'] in PREF_BUILDINGS) +
-                                  (set(m['days_of_week']).isdisjoint(PREF_NO_DAYS))
-                                  for m in sec['times'])
-                    sc_instr = 1 if any(i in PREF_INSTRUCTORS for i in sec['instructors']) else 0
-                    sc = sc_time + sc_instr
-                    if sc > best_sc:
-                        best_sc, best_sec = sc, sec
-                # Discussion scoring
-                best_disc = None
-                best_dsc = -1
-                if best_sec:
-                    prefix_code = best_sec['section_code'].split('-')[0]
-                    for dsec in sections_by_course.get(course, []):
-                        if dsec['term_id'] != detailed_id or dsec['is_primary']:
-                            continue
-                        if not dsec['section_code'].startswith(prefix_code):
-                            continue
-                        dsc_time = sum((PREF_EARLIEST <= m['start_time'] <= PREF_LATEST) +
-                                      (PREF_EARLIEST <= m['end_time'] <= PREF_LATEST) +
-                                      (m['building'] in PREF_BUILDINGS) +
-                                      (set(m['days_of_week']).isdisjoint(PREF_NO_DAYS))
-                                      for m in dsec['times'])
-                        dsc_instr = 1 if any(i in PREF_INSTRUCTORS for i in dsec['instructors']) else 0
-                        dsc = dsc_time + dsc_instr
-                        if dsc > best_dsc:
-                            best_dsc, best_disc = dsc, dsec
-                sel[course] = {'lecture': best_sec, 'discussion': best_disc}
-                total += max(0, best_sc) + max(0, best_dsc)
-            return total, sel
+                    if not dsec['section_code'].startswith(pref):
+                        continue
+                    dsc = sum((PREF_EARLIEST <= m['start_time'] <= PREF_LATEST) +
+                              (PREF_EARLIEST <= m['end_time'] <= PREF_LATEST) +
+                              (m['building'] in PREF_BUILDINGS) +
+                              (set(m['days_of_week']).isdisjoint(PREF_NO_DAYS)) for m in dsec['times'])
+                    if any(i in PREF_INSTRUCTORS for i in dsec['instructors']):
+                        dsc += 1
+                    if dsc > best_dsc:
+                        best_dsc, best_disc = dsc, dsec
+            sel[course] = {'lecture': best_sec, 'discussion': best_disc}
+            total += max(0, best_sc) + max(0, best_dsc)
+        return total, sel
 
-        best_score = -1
-        best_sel: Dict[str, Dict] = {}
-        for pf in prefixes:
-            sc, sel = score_and_select(pf)
-            if sc > best_score:
-                best_score, best_sel = sc, sel
-        # ensure non-empty
-        if not best_sel and prefixes:
-            best_sel = {c: {'lecture': None, 'discussion': None} for c in prefixes[0]}
-        schedule[first_term] = best_sel
-    else:
-        schedule[first_term] = {c: {'lecture': None, 'discussion': None} for c in prefixes[0]}
+    best_score, best_sel = -1, {}
+    for pf in prefixes:
+        sc, sel = score_and_select(pf)
+        if sc > best_score:
+            best_score, best_sel = sc, sel
+    schedule: Dict[str, object] = {first_term: best_sel}
 
-    # 8) Fill subsequent terms by prerequisites
+    # 7) Subsequent terms by prereq/coreq
     all_set = set(required)
-    scheduled_first = set(schedule[first_term].keys())
+    scheduled_first = set(best_sel.keys())
     remaining = all_set - scheduled_first
-    adj: Dict[str, List[str]] = {c: [] for c in remaining}
-    indegree: Dict[str, int] = {c: 0 for c in remaining}
-        # 8) Fill subsequent terms by prerequisites
-    all_set = set(required)
-    scheduled_first = set(schedule[first_term].keys())
-    remaining = all_set - scheduled_first
-
-    # build adjacency & indegree for remaining courses
-    adj: Dict[str, List[str]] = {c: [] for c in remaining}
-    indegree: Dict[str, int] = {c: 0 for c in remaining}
+    adj = {c: [] for c in remaining}
+    indegree = {c: 0 for c in remaining}
     for course in remaining:
         for rc, typ, _, sev in prereq_logic.get(course, []):
-            # only consider prereqs still in remaining
-            if typ == 'prerequisite' and (sev == 'R' or (sev == 'W' and not allow_warnings)) and rc in remaining:
+            if rc in remaining and typ in ('prerequisite','corequisite') and (sev=='R' or (sev=='W' and not allow_warnings)):
                 adj[rc].append(course)
                 indegree[course] += 1
     import math
-    for idx, term in enumerate(term_labels[1:], start=1):
-        rem_terms = len(term_labels) - idx - 1
-        avail = sorted([c for c in remaining if indegree.get(c, 0) == 0])
-        ideal = math.ceil(len(avail) / (rem_terms + 1)) if rem_terms >= 0 else len(avail)
+    for term in term_labels[1:]:
+        avail = sorted([c for c in remaining if indegree[c] == 0])
+        # distribute evenly
+        rem_terms = len(term_labels) - term_labels.index(term) - 1
+        ideal = math.ceil(len(avail) / (rem_terms+1)) if rem_terms >= 0 else len(avail)
         count = max(LEAST_COURSES_PER_TERM, min(ideal, MAX_COURSES_PER_TERM))
         take = avail[:count]
         schedule[term] = take
         for c in take:
-            for succ in adj.get(c, []):
-                indegree[succ] -= 1
-            remaining.discard(c)
-
-    # 9) Pad underfilled terms
-    for term in term_labels:
-        vals = schedule.get(term, [])
-        if isinstance(vals, list):
-            while len(vals) < LEAST_COURSES_PER_TERM:
-                vals.append(FILLER_COURSE)
+            for succ in adj[c]: indegree[succ] -= 1
+            remaining.remove(c)
+        while len(schedule[term]) < LEAST_COURSES_PER_TERM:
+            schedule[term].append(FILLER_COURSE)
 
     return schedule
 
 
-def format_schedule(schedule: Dict) -> Dict:
-    out: Dict = {}
+def format_schedule(schedule: Dict[str, object]) -> Dict:
+    """Format times and dedupe for JSON output."""
+    out: Dict[str, object] = {}
     for term, entries in schedule.items():
         if isinstance(entries, dict):
-            fm: Dict = {}
+            fm = {}
             for course, info in entries.items():
-                lec = info.get('lecture')
-                disc = info.get('discussion')
+                lec = info['lecture']
+                disc = info['discussion']
                 def fmt(sec):
-                    if not sec:
-                        return None
+                    if not sec: return None
                     seen = set()
-                    times = []
+                    times_list = []
                     for m in sec['times']:
-                        key = (
-                            tuple(m['days_of_week']), m['start_time'],
-                            m['end_time'], m['building'], m['room']
-                        )
-                        if key in seen:
-                            continue
+                        key = (tuple(m['days_of_week']), m['start_time'], m['end_time'], m['building'], m['room'])
+                        if key in seen: continue
                         seen.add(key)
-                        times.append({
+                        times_list.append({
                             'days': m['days_of_week'],
                             'start': m['start_time'].strftime('%H:%M'),
                             'end': m['end_time'].strftime('%H:%M'),
                             'building': m['building'],
-                            'room': m['room'],
+                            'room': m['room']
                         })
                     return {
                         'id': sec['id'],
                         'section': sec['section_code'],
                         'activity': sec.get('activity'),
-                        'times': times,
+                        'times': times_list,
                         'instructors': sec.get('instructors', [])
                     }
                 fm[course] = {'primary': fmt(lec), 'secondary': fmt(disc)}
@@ -399,10 +368,6 @@ def format_schedule(schedule: Dict) -> Dict:
     return out
 
 if __name__ == "__main__":
-    # Build and format schedule
     sched = build_schedule(2024, 'Fall', 2026, 'Spring', allow_warnings=ALLOW_WARNINGS)
     formatted = format_schedule(sched)
-
-    # Output as a structured dictionary (JSON for readability)
-    import json
     print(json.dumps(formatted, default=str, indent=2))
