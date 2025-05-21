@@ -387,7 +387,7 @@ def build_schedule(start_year, start_q, grad_year, grad_q):
     for i, opts in enumerate(first_quarter_options, 1):
         print(f"Option {i}: {opts}")
     
-    # 11) Choose and score first-quarter prefix with section selection
+        # 11) Choose and score first-quarter prefix with section and discussion selection
     schedule = {term: [] for term in terms}
     first_term = next(iter(terms))  # e.g. 'Fall 2024'
 
@@ -397,14 +397,14 @@ def build_schedule(start_year, start_q, grad_year, grad_q):
             total = 0
             selected = {}
             for course in prefix:
+                # --- Lecture selection ---
                 best_sec = None
                 best_score = -1
-                # find primary sections for this term
                 for sec in sections_by_course.get(course, []):
                     if sec['term_id'] != detailed_term_id or not sec['is_primary']:
                         continue
                     sc = 0
-                    # evaluate meeting times
+                    # time preferences
                     for m in sec['times']:
                         if PREF_EARLIEST <= m['start_time'] <= PREF_LATEST:
                             sc += 1
@@ -420,16 +420,39 @@ def build_schedule(start_year, start_q, grad_year, grad_q):
                     if sc > best_score:
                         best_score = sc
                         best_sec = sec
-                # find associated discussions
-                disc = []
+
+                # --- Discussion selection ---
+                best_disc = None
+                best_disc_score = -1
                 if best_sec:
-                    lec_code = best_sec['section_code'].split('-')[0]
-                    for sec in sections_by_course.get(course, []):
-                        if sec['term_id'] == detailed_term_id and not sec['is_primary']:
-                            if sec['section_code'].startswith(lec_code):
-                                disc.append(sec)
-                selected[course] = {'lecture': best_sec, 'discussions': disc}
-                total += max(0, best_score)
+                    lec_prefix = best_sec['section_code'].split('-')[0]
+                    for dsec in sections_by_course.get(course, []):
+                        if dsec['term_id'] != detailed_term_id or dsec['is_primary']:
+                            continue
+                        if not dsec['section_code'].startswith(lec_prefix):
+                            continue
+                        dsc = 0
+                        for m in dsec['times']:
+                            if PREF_EARLIEST <= m['start_time'] <= PREF_LATEST:
+                                dsc += 1
+                            if PREF_EARLIEST <= m['end_time'] <= PREF_LATEST:
+                                dsc += 1
+                            if m['building'] in PREF_BUILDINGS:
+                                dsc += 1
+                            if set(m['days_of_week']).isdisjoint(PREF_NO_DAYS):
+                                dsc += 1
+                        if any(instr in PREF_INSTRUCTORS for instr in dsec['instructors']):
+                            dsc += 1
+                        if dsc > best_disc_score:
+                            best_disc_score = dsc
+                            best_disc = dsec
+
+                # record selections
+                selected[course] = {
+                    'lecture': best_sec,
+                    'discussion': best_disc
+                }
+                total += max(0, best_score) + max(0, best_disc_score)
             return total, selected
 
         best_score = -1
@@ -439,11 +462,13 @@ def build_schedule(start_year, start_q, grad_year, grad_q):
             if sc > best_score:
                 best_score = sc
                 best_selection = sel
-        # assign detailed sections for first term
         schedule[first_term] = best_selection
     else:
         # no detailed data, just list course keys
-        schedule[first_term] = {c: {'lecture': None, 'discussions': []} for c in first_quarter_options[0]}
+        schedule[first_term] = {
+            c: {'lecture': None, 'discussion': None}
+            for c in first_quarter_options[0]
+        }
 
     # 12) Schedule remaining courses by strict prereq order (keys only)
     remaining = set(prereq_logic.keys()) - set(schedule[first_term].keys())
@@ -468,8 +493,8 @@ def build_schedule(start_year, start_q, grad_year, grad_q):
             for succ in adj.get(c, []):
                 indegree[succ] -= 1
             remaining.remove(c)
-    return schedule
 
+    return schedule
     # 13) Format and display first-term sections cleanly
 def format_schedule(schedule: Dict) -> Dict:
     formatted = {}
@@ -478,68 +503,79 @@ def format_schedule(schedule: Dict) -> Dict:
             # detailed first term
             ft = {}
             for course, info in entries.items():
-                lec = info['lecture']
-                # dedupe times
-                seen = set()
-                times = []
-                for m in lec['times']:
-                    key = (
-                        tuple(m['days_of_week']), 
-                        m['start_time'], m['end_time'], 
-                        m['building'], m['room']
-                    )
-                    if key not in seen:
-                        seen.add(key)
-                        times.append({
+                lec = info.get('lecture')
+                disc = info.get('discussion')
+
+                # --- format lecture ---
+                lec_times = []
+                seen_lt = set()
+                if lec:
+                    for m in lec['times']:
+                        key = (tuple(m['days_of_week']),
+                               m['start_time'], m['end_time'],
+                               m['building'], m['room'])
+                        if key in seen_lt: continue
+                        seen_lt.add(key)
+                        lec_times.append({
                             'days': m['days_of_week'],
                             'start': m['start_time'].strftime('%H:%M'),
                             'end':   m['end_time'].strftime('%H:%M'),
                             'building': m['building'],
                             'room': m['room'],
                         })
-                lec_info = {
-                    'id': lec['id'],
-                    'section': lec['section_code'],
-                    'activity': lec.get('activity'),
-                    'times': times,
-                    'instructors': lec.get('instructors', []),
-                }
+                    lec_info = {
+                        'id': lec['id'],
+                        'section': lec['section_code'],
+                        'activity': lec.get('activity'),
+                        'times': lec_times,
+                        'instructors': lec.get('instructors', []),
+                    }
+                else:
+                    lec_info = None
 
-                discs = []
-                for d in info['discussions']:
-                    seen_d = set()
-                    dtimes = []
-                    for m in d['times']:
-                        key = (
-                            tuple(m['days_of_week']),
-                            m['start_time'], m['end_time'],
-                            m['building'], m['room']
-                        )
-                        if key not in seen_d:
-                            seen_d.add(key)
-                            dtimes.append({
-                                'days': m['days_of_week'],
-                                'start': m['start_time'].strftime('%H:%M'),
-                                'end':   m['end_time'].strftime('%H:%M'),
-                                'building': m['building'],
-                                'room': m['room'],
-                            })
-                    discs.append({
-                        'id': d['id'],
-                        'section': d['section_code'],
-                        'activity': d.get('activity'),
-                        'times': dtimes,
-                        'instructors': d.get('instructors', []),
-                    })
+                # --- format discussion ---
+                disc_info = None
+                if disc:
+                    disc_times = []
+                    seen_dt = set()
+                    for m in disc['times']:
+                        key = (tuple(m['days_of_week']),
+                               m['start_time'], m['end_time'],
+                               m['building'], m['room'])
+                        if key in seen_dt: continue
+                        seen_dt.add(key)
+                        disc_times.append({
+                            'days': m['days_of_week'],
+                            'start': m['start_time'].strftime('%H:%M'),
+                            'end':   m['end_time'].strftime('%H:%M'),
+                            'building': m['building'],
+                            'room': m['room'],
+                        })
+                    disc_info = {
+                        'id': disc['id'],
+                        'section': disc['section_code'],
+                        'activity': disc.get('activity'),
+                        'times': disc_times,
+                        'instructors': disc.get('instructors', []),
+                    }
 
                 ft[course] = {
-                    'lecture': lec_info,
-                    'discussions': discs
+                    'primary': lec_info,
+                    'secondary': disc_info
                 }
             formatted[term] = ft
         else:
+            # later terms are just lists of course keys
             formatted[term] = entries
     return formatted
+
+if __name__ == "__main__":
+    sched = build_schedule(
+        start_year=2024, start_q="Fall",
+        grad_year=2026, grad_q="Spring"
+    )
+    import pprint
+    pprint.pprint(format_schedule(sched))
 
 
 
