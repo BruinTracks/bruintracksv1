@@ -24,32 +24,30 @@ COURSES_TO_SCHEDULE = [
     "C&EE|110", "COM SCI|130"
 ]
 
-# Transcript: completed courses with optional grades (None => not taken)
-# A grade satisfies a course if meets_min_grade(grade, "D-") returns True
-TRANSCRIPT: Dict[str, Optional[str]] = {
-    # Example: "COM SCI|31": "A+", "MATH|31A": None
-}
+# Transcript: completed courses with optional grades
+TRANSCRIPT: Dict[str, Optional[str]] = {}
 
 # Scheduling parameters
-MAX_COURSES_PER_TERM      = 5 # these are strict requirements
+MAX_COURSES_PER_TERM      = 5
 LEAST_COURSES_PER_TERM    = 3
 FILLER_COURSE             = "FILLER"
-ALLOW_WARNINGS            = False   # treat 'W' as 'R' when False
-ALLOW_PRIMARY_CONFLICTS   = True   # allow lecture conflicts in first term if True (strict requirement)
-ALLOW_SECONDARY_CONFLICTS = False   # allow discussion conflicts in first term if True (strict requirement)
+ALLOW_WARNINGS            = True
+ALLOW_PRIMARY_CONFLICTS   = True
+ALLOW_SECONDARY_CONFLICTS = True
 
 # Preferences for first-term scoring
-PREF_EARLIEST    = datetime.strptime("09:00", "%H:%M").time() # preferred (not strict)
-PREF_LATEST      = datetime.strptime("10:00", "%H:%M").time() # preferred (not strict)
+# Users can rank preferences by setting this list in order of importance
+PREF_PRIORITY = [
+    'time', 'building', 'days', 'instructor'
+]
+PREF_EARLIEST    = datetime.strptime("09:00", "%H:%M").time()
+PREF_LATEST      = datetime.strptime("10:00", "%H:%M").time()
 PREF_NO_DAYS     = {"F"}
 PREF_BUILDINGS   = {"MS", "SCI"}
 PREF_INSTRUCTORS = set()
 
-# Grade ordering for comparisons
-GRADE_ORDER = [
-    "A+","A","A-","B+","B","B-",
-    "C+","C","C-","D+","D","D-","F"
-]
+# Grade ordering
+GRADE_ORDER = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","F"]
 
 # ───── HELPERS ─────
 def safe_execute(req, retries: int = 3, backoff: float = 0.2):
@@ -255,38 +253,49 @@ def build_schedule(
     pe, pl = PREF_EARLIEST, PREF_LATEST
     pnd, pb, pi = PREF_NO_DAYS, PREF_BUILDINGS, PREF_INSTRUCTORS
 
+    weight_map = {pref: len(PREF_PRIORITY) - i for i, pref in enumerate(PREF_PRIORITY)}
+
     def score_and_select(prefix: List[str]) -> Tuple[int, Dict[str, Dict]]:
         total = 0
         sel: Dict[str, Dict] = {}
         for course in prefix:
-            best_sc, best_sec = -1, None
+            # select lecture
+            best_sec, best_sc = None, -1
             for sec in sections_by_course.get(course, []):
-                if sec['term_id'] != idx2db[0] or not sec['is_primary']:
-                    continue
+                if sec['term_id'] != idx2db[0] or not sec['is_primary']: continue
                 sc = 0
                 for m in sec['times']:
-                    sc += (pe <= m['start_time'] <= pl) + (pe <= m['end_time'] <= pl)
-                    sc += (m['building'] in pb)
-                    sc += set(m['days_of_week']).isdisjoint(pnd)
-                if any(i in pi for i in sec['instructors']):
-                    sc += 1
+                    if PREF_EARLIEST <= m['start_time'] <= PREF_LATEST:
+                        sc += weight_map['time']
+                    if PREF_EARLIEST <= m['end_time'] <= PREF_LATEST:
+                        sc += weight_map['time']
+                    if m['building'] in PREF_BUILDINGS:
+                        sc += weight_map['building']
+                    if set(m['days_of_week']).isdisjoint(PREF_NO_DAYS):
+                        sc += weight_map['days']
+                if any(instr in PREF_INSTRUCTORS for instr in sec['instructors']):
+                    sc += weight_map['instructor']
                 if sc > best_sc:
                     best_sc, best_sec = sc, sec
-            best_dsc, best_disc = -1, None
+            # select discussion similarly using weight_map
+            best_disc, best_dsc = None, -1
             if best_sec:
-                base_code = best_sec['section_code'].split('-')[0]
+                lec_code = best_sec['section_code'].split('-')[0]
                 for dsec in sections_by_course.get(course, []):
-                    if dsec['term_id'] != idx2db[0] or dsec['is_primary']:
-                        continue
-                    if not dsec['section_code'].startswith(base_code):
-                        continue
+                    if dsec['term_id'] != idx2db[0] or dsec['is_primary']: continue
+                    if not dsec['section_code'].startswith(lec_code): continue
                     dsc = 0
                     for m in dsec['times']:
-                        dsc += (pe <= m['start_time'] <= pl) + (pe <= m['end_time'] <= pl)
-                        dsc += (m['building'] in pb)
-                        dsc += set(m['days_of_week']).isdisjoint(pnd)
-                    if any(i in pi for i in dsec['instructors']):
-                        dsc += 1
+                        if PREF_EARLIEST <= m['start_time'] <= PREF_LATEST:
+                            dsc += weight_map['time']
+                        if PREF_EARLIEST <= m['end_time'] <= PREF_LATEST:
+                            dsc += weight_map['time']
+                        if m['building'] in PREF_BUILDINGS:
+                            dsc += weight_map['building']
+                        if set(m['days_of_week']).isdisjoint(PREF_NO_DAYS):
+                            dsc += weight_map['days']
+                    if any(instr in PREF_INSTRUCTORS for instr in dsec['instructors']):
+                        dsc += weight_map['instructor']
                     if dsc > best_dsc:
                         best_dsc, best_disc = dsc, dsec
             sel[course] = {'lecture': best_sec, 'discussion': best_disc}
