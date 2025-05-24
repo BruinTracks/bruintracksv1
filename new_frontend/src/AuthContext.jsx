@@ -19,7 +19,9 @@ export const AuthProvider = ({ children }) => {
 
     return () => listener.subscription.unsubscribe();
   }, []);
-
+  console.log("SESSION INFO")
+  console.log(session)
+  console.log(loading)
   return (
     <AuthContext.Provider value={{ session, loading }}>
       {children}

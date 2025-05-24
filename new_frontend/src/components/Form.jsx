@@ -63,6 +63,13 @@ const classes = {
 
 const FormModal = ({ children, handleClick, handleBackClick, validate }) => {
   const [isInvalid, setIsInvalid] = useState(false);
+  const navigate = useNavigate();
+
+  const onSignOut = () => {
+    handleSignOut();
+    navigate("/");
+  };
+
   return (
     <motion.div
       className="bg-gray-100 rounded-xl  border border-gray-700"
@@ -94,7 +101,7 @@ const FormModal = ({ children, handleClick, handleBackClick, validate }) => {
               <ArrowRightCircle size={30} />
             </button>
             <button
-              onClick={handleSignOut}
+              onClick={onSignOut}
               className=" text-black inline-block mt-1 hover:text-blue-500"
             >
               SIGN OUT
@@ -374,20 +381,22 @@ const ClassSelect = ({
     });
   };
 
+  useEffect(() => {
+    console.log("testing");
+    fetch("http://localhost:3000/get_courses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        "majorName": "ComputerScienceBS"
+      }),
+    }).then(res => res.json()).then((res) => {
+      setMyClasses(res);
+    });
+  }, []);
 
-
-  fetch("https://localhost:3000/get_courses", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: {
-      "majorName": "ComputerScienceBS"
-    },
-  }).then(res => res.json()).then((res) => {
-    setMyClasses(res);
-  });
-
+  console.log(myClasses);
 
   return (
     <FormModal handleClick={handleNextClick} handleBackClick={handleBackClick}>
@@ -399,27 +408,28 @@ const ClassSelect = ({
           placeholder={'Department'}
         />
 
-        <div
-          className={`grid gap-2`}
-          style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
-        >
-          {(dept == 'My Major' ? myClasses : dept != 'ALL' ? classes[dept] : Object.values(classes).flat()).map(
-            (item, index) => (
-              <div
-                key={index}
-                className={`pl-4 pr-4 pt-2 pb-2 border rounded-lg text-center cursor-pointer transition ${
-                  selectedItems.has(item)
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100'
-                }`}
-                onClick={() => toggleItem(item)}
-              >
-                {item}
-              </div>
-            )
-          )}
+        <div className="max-h-50 overflow-y-auto">
+          <div
+            className={`grid gap-2`}
+            style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+          >
+            {(dept == 'My Major' ? myClasses : dept != 'ALL' ? classes[dept] : Object.values(classes).flat()).map(
+              (item, index) => (
+                <div
+                  key={index}
+                  className={`pl-4 pr-4 pt-2 pb-2 border rounded-lg text-center cursor-pointer transition ${
+                    selectedItems.has(item)
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100'
+                  }`}
+                  onClick={() => toggleItem(item)}
+                >
+                  {item}
+                </div>
+              )
+            )}
+          </div>
         </div>
-
         <div className="mt-4 p-2 border rounded">
           <strong>In-progress/completed classes:</strong>{' '}
           {Array.from(selectedItems).join(', ') || 'None'}
@@ -549,7 +559,7 @@ const SummaryView = ({
 };
 
 export const Form = () => {
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(4);
   const handleNextClick = () => setStep(step + 1);
   const handleBackClick = () => setStep(step - 1);
 

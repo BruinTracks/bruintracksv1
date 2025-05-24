@@ -1,16 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from './supabaseClient';
 
 export const GoogleAuthRouter = () => {
     const { session, loading } = useAuth();
     const [checked, setChecked] = useState(false);
     const navigate = useNavigate();
-
+    const location = useLocation();
+console.log(location.pathname);
     useEffect(() => {
     const checkIfNewUser = async () => {
-        if (!session || !session?.user) navigate('/');
+        //console.log("CHECK");
+        //console.log(session);
+        //console.log(session?.user);
+        //console.log(location);
+        if (!session || !session?.user) return;
         if (loading || checked) return;
 
         const { data, error } = await supabase
@@ -26,8 +31,8 @@ export const GoogleAuthRouter = () => {
         console.log('NEW USER');
         navigate('/Form');
         } else {
-        console.log('RETURNING USER');
-        navigate('/Home');
+            if (location.pathname == "/") navigate('/Home');
+            console.log('RETURNING USER');
         }
 
         setChecked(true);

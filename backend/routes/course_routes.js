@@ -4,6 +4,6 @@ import { getCourses } from '../controllers/courses_controller.js';
 const router = express.Router();
 
 // Routes
-router.get('/get_courses', getCourses); 
+router.post('/get_courses', getCourses); 
 
 export default router;

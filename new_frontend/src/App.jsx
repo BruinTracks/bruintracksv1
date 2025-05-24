@@ -13,6 +13,7 @@ function App() {
 
   return (
     <Router>
+      <GoogleAuthRouter />
       <Routes>
         <Route path="/" element={<Banner />} />
         <Route path="/Form" element={<Form />} />
