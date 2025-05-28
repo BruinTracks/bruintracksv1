@@ -1,0 +1,102 @@
+{
+  "Arts and Architecture": {
+    "Arts and Humanities": {
+      "Literary and Cultural Analysis": "1 course",
+      "Philosophic and Linguistic Analysis": "1 course",
+      "Visual and Performance Arts Analysis and Practice": "1 course",
+      "Total Units": "15 Units Minimum"
+    },
+    "Society and Culture": {
+      "Historical Analysis": "1 course",
+      "Social Analysis": "1 course",
+      "3rd Course": "3rd course from either subgroup",
+      "Total Units": "15 Units Minimum"
+    },
+    "Scientific Inquiry": {
+      "Life Sciences": "2 courses total; if both are from same subgroup, must be in different departments",
+      "Physical Sciences": "-",
+      "Total Units": "8 Units Minimum"
+    },
+    "Total": "8 Courses (38 Units Minimum)"
+  },
+  "Education and Social Science/Public Affairs": {
+    "Arts and Humanities": {
+      "Literary and Cultural Analysis": "1 course",
+      "Philosophic and Linguistic Analysis": "1 course",
+      "Visual and Performance Arts Analysis and Practice": "1 course",
+      "Total Units": "15 Units Minimum"
+    },
+    "Society and Culture": {
+      "Historical Analysis": "1 course",
+      "Social Analysis": "1 course",
+      "3rd Course": "3rd course from either subgroup",
+      "Total Units": "15 Units Minimum"
+    },
+    "Scientific Inquiry": {
+      "Life Sciences": "4 courses total, 2 from each subgroup, 1 of the 4 with laboratory credit",
+      "Physical Sciences": "-",
+      "Total Units": "17 Units Minimum"
+    },
+    "Total": "10 Courses (47 Units Minimum)"
+  },
+  "Engineering and Applied Science": {
+    "Arts and Humanities": {
+      "Literary and Cultural Analysis": "2 courses each from a different subgroup",
+      "Philosophic and Linguistic Analysis": "",
+      "Visual and Performance Arts Analysis and Practice": "",
+      "Total Units": "10 Units Minimum"
+    },
+    "Society and Culture": {
+      "Historical Analysis": "1 course",
+      "Social Analysis": "1 course",
+      "3rd Course": "-",
+      "Total Units": "10 Units Minimum"
+    },
+    "Scientific Inquiry": {
+      "Life Sciences": "1 course from Life Sciences",
+      "Physical Sciences": "-",
+      "Total Units": "4 Units Minimum"
+    },
+    "Total": "5 Courses (24 Units Minimum)"
+  },
+  "Nursing": {
+    "Arts and Humanities": {
+      "Literary and Cultural Analysis": "1 course",
+      "Philosophic and Linguistic Analysis": "1 course",
+      "Visual and Performance Arts Analysis and Practice": "1 course",
+      "Total Units": "15 Units Minimum"
+    },
+    "Society and Culture": {
+      "Historical Analysis": "1 course",
+      "Social Analysis": "1 course",
+      "3rd Course": "3rd course from either subgroup",
+      "Total Units": "15 Units Minimum"
+    },
+    "Scientific Inquiry": {
+      "Life Sciences": "2 courses",
+      "Physical Sciences": "2 courses",
+      "Total Units": "18 Units Minimum"
+    },
+    "Total": "10 Courses (48 Units Minimum)"
+  },
+  "Theater, Film, and Television": {
+    "Arts and Humanities": {
+      "Literary and Cultural Analysis": "5 courses with not more than two in any one subgroup",
+      "Philosophic and Linguistic Analysis": "",
+      "Visual and Performance Arts Analysis and Practice": "",
+      "Total Units": "25 Units Minimum"
+    },
+    "Society and Culture": {
+      "Historical Analysis": "1 course",
+      "Social Analysis": "1 course",
+      "3rd Course": "3rd course from either subgroup",
+      "Total Units": "15 Units Minimum"
+    },
+    "Scientific Inquiry": {
+      "Life Sciences": "1 course",
+      "Physical Sciences": "1 course",
+      "Total Units": "8 Units Minimum"
+    },
+    "Total": "10 Courses (48 Units Minimum)"
+  }
+}

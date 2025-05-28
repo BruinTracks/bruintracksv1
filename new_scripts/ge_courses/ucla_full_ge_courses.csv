@@ -1,0 +1,20 @@
+Department,Catalog Number,Course Title,Writing II,Diversity,College/School,Foundation Categories,Department Code
+Clusters,73A,"Brain, Bodymind, and Society: All in Your Head?",No,,,"['Arts and Humanities: Literary and Cultural Analysis', 'Arts and Humanities: Philosophical and Linguistic Analysis', 'Scientific Inquiry: Life Sciences', 'Society and Culture: Social Analysis']",CLUSTER
+Linguistics,1,Introduction to Study of Language,No,,Arts and Architecture,"['Arts and Humanities: Philosophical and Linguistic Analysis', 'Scientific Inquiry: Life Sciences']",UNKNOWN
+Society and Genetics,M71A,Biotechnology and Society,No,,Letters and Science,"['Arts and Humanities: Literary and Cultural Analysis', 'Scientific Inquiry: Life Sciences', 'Society and Culture: Historical Analysis', 'Society and Culture: Social Analysis']",UNKNOWN
+Anthropology,1,Human Evolution,No,---,,['Scientific Inquiry: Life Sciences'],ANTHRO
+Biomedical Research,1A,Science in Your Time,No,,Letters and Science,['Scientific Inquiry: Life Sciences'],BMD RES
+Ecology and Evolutionary Biology,10,Plants and Civilization,No,,,['Scientific Inquiry: Life Sciences'],EE BIOL
+Life Sciences,15,Life: Concepts and Issues,No,,,['Scientific Inquiry: Life Sciences'],LIFESCI
+Astronomy,3,Nature of the Universe,No,,,['Scientific Inquiry: Physical Sciences'],ASTR
+Chemistry and Biochemistry,14A,General Chemistry for Life Scientists I,No,,,['Scientific Inquiry: Physical Sciences'],CHEM
+Philosophy,8,Introduction to Philosophy of Science,No,,,"['Arts and Humanities: Philosophical and Linguistic Analysis', 'Scientific Inquiry: Physical Sciences']",PHILOS
+Physics,10,Physics,No,,,['Scientific Inquiry: Physical Sciences'],PHYSICS
+African American Studies,1,Introduction to Black Studies,No,---,,"['Arts and Humanities: Literary and Cultural Analysis', 'Society and Culture: Historical Analysis', 'Society and Culture: Social Analysis']",AF AMER
+Ancient Near East,10W,Jerusalem: Holy City,Yes,,"Arts and Architecture, Letters and Science","['Arts and Humanities: Literary and Cultural Analysis', 'Society and Culture: Historical Analysis']",AN N EA
+Anthropology,2,Archaeology: Introduction,No,---,,"['Society and Culture: Historical Analysis', 'Society and Culture: Social Analysis']",ANTHRO
+Chicana/o and Central American Studies,10B,Introduction to Chicana/Chicano Studies: Social Structure and Contemporary Conditions,No,,Letters and Science,"['Society and Culture: Historical Analysis', 'Society and Culture: Social Analysis']",CCAS
+African American Studies,1,Introduction to Black Studies,No,---,,"['Arts and Humanities: Literary and Cultural Analysis', 'Society and Culture: Historical Analysis', 'Society and Culture: Social Analysis']",AF AMER
+Anthropology,3,Culture and Society,No,,Arts and Architecture,['Society and Culture: Social Analysis'],ANTHRO
+Asian American Studies,20,Contemporary Asian American Communities,No,,"Arts and Architecture, Letters and Science",['Society and Culture: Social Analysis'],ASIA AM
+Public Affairs,10,Social Problems and Social Change,No,,,['Society and Culture: Social Analysis'],PUB AFF

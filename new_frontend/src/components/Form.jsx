@@ -12,16 +12,6 @@ import { handleSignOut } from '../supabaseClient';
 import { useAuth } from '../AuthContext';
 import { supabase } from '../supabaseClient';
 
-const school_options = [
-  'College of Letters and Sciences',
-  'HSSEAS',
-  'Music',
-  'Film',
-  'Arts & Arch',
-  'Education',
-  'Nursing',
-  'Public Affairs',
-];
 const majors = [
   'CS',
   'CSE',
@@ -63,12 +53,6 @@ const classes = {
 
 const FormModal = ({ children, handleClick, handleBackClick, validate }) => {
   const [isInvalid, setIsInvalid] = useState(false);
-  const navigate = useNavigate();
-
-  const onSignOut = () => {
-    handleSignOut();
-    navigate("/");
-  };
 
   return (
     <motion.div
@@ -100,12 +84,6 @@ const FormModal = ({ children, handleClick, handleBackClick, validate }) => {
             >
               <ArrowRightCircle size={30} />
             </button>
-            <button
-              onClick={onSignOut}
-              className=" text-black inline-block mt-1 hover:text-blue-500"
-            >
-              SIGN OUT
-            </button>
           </div>
         </div>
       </div>
@@ -125,6 +103,15 @@ const Icebreaker = ({
   handleNextClick = () => {},
   validate = null
 }) => {
+  const [schoolOptions, setSchoolOptions] = useState([]);
+  useEffect(() => {
+    fetch('http://localhost:3000/schools')
+      .then(res => res.json())
+      .then(data => {
+        setSchoolOptions(data);
+        if (!school && data.length > 0) setSchool(data[0]);
+      });
+  }, []);
   return (
     <FormModal handleClick={handleNextClick} validate={validate} handleBackClick={null}>
       <p className="text-4xl font-bold mt-4">But first,</p>
@@ -143,7 +130,7 @@ const Icebreaker = ({
       <div className="flex flex-row justify-center items-center">
         <label className="text-xl mr-5">School:</label>
         <Dropdown
-          options={school_options}
+          options={schoolOptions}
           onSelect={setSchool}
           defaultOption={school}
         />
@@ -170,6 +157,72 @@ const Icebreaker = ({
   );
 };
 
+const MajorAutocomplete = ({ school, major, setMajor }) => {
+  const [options, setOptions] = useState([]);
+  const [query, setQuery] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [schoolId, setSchoolId] = useState(null);
+
+  useEffect(() => {
+    if (!school) return;
+    fetch(`http://localhost:3000/schools`)
+      .then(res => res.json())
+      .then(data => {
+        // Assume backend returns [{id, name}] in future, for now just name
+        // So we need to fetch all schools and find the id
+        fetch(`http://localhost:3000/schools/all`)
+          .then(res2 => res2.json())
+          .then(schools => {
+            const found = schools.find(s => s.name === school);
+            if (found) setSchoolId(found.id);
+            console.log(found.id);
+          });
+      });
+  }, [school]);
+
+  useEffect(() => {
+    if (!schoolId) return;
+    fetch(`http://localhost:3000/majors?school_id=${schoolId}`)
+      .then(res => res.json())
+      .then(data => setOptions(data));
+  }, [schoolId]);
+
+  const filtered = options.filter(opt => opt.toLowerCase().includes(query.toLowerCase()));
+
+  return (
+    <div className="relative w-full">
+      <input
+        type="text"
+        value={major}
+        onChange={e => {
+          setQuery(e.target.value);
+          setMajor(e.target.value);
+          setShowDropdown(true);
+        }}
+        onFocus={() => setShowDropdown(true)}
+        className="border rounded p-1 w-full bg-gray-100"
+        placeholder="Search majors..."
+      />
+      {showDropdown && filtered.length > 0 && (
+        <div className="absolute bg-white border w-full z-10 max-h-40 overflow-y-auto">
+          {filtered.map(opt => (
+            <div
+              key={opt}
+              className="p-2 hover:bg-blue-100 cursor-pointer"
+              onClick={() => {
+                setMajor(opt);
+                setShowDropdown(false);
+              }}
+            >
+              {opt}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const InfoDetail = ({
   handleBackClick = () => {},
   handleNextClick = () => {},
@@ -177,29 +230,20 @@ const InfoDetail = ({
   setMajor = () => {},
   wantsDbMajor = null,
   setWantsDbMajor = () => {},
-  wantsMinor = null,
-  setWantsMinor = () => {},
   doubleMajor = '',
   setDoubleMajor = () => {},
-  minor = '',
-  setMinor = () => {},
   wantsSummerClasses = null,
   setWantsSummerClasses = () => {},
   maxWorkload = -1,
   setMaxWorkload = () => {},
+  school = '',
   validate = () => {}
 }) => {
   const [dbMajorSelect, setDbMajorSelect] = useState(wantsDbMajor);
-  const [minorSelect, setMinorSelect] = useState(wantsMinor);
 
   const showDbMajor = (visible) => {
     setWantsDbMajor(visible == 'Yep');
     setDbMajorSelect(visible == 'Yep');
-  };
-
-  const showMinor = (visible) => {
-    setWantsMinor(visible == 'Yep');
-    setMinorSelect(visible == 'Yep');
   };
 
   const setSummerClassesOn = (visible) => {
@@ -227,7 +271,9 @@ const InfoDetail = ({
       </div>
       <div className="flex flex-row justify-center items-center">
         <label className="text-xl mr-5">Major:</label>
-        <Dropdown options={majors} onSelect={setMajor} defaultOption={major} />
+        <div className="flex-1">
+          <MajorAutocomplete school={school} major={major} setMajor={setMajor} />
+        </div>
       </div>
       <div className="flex flex-row justify-center items-center">
         <label className="text-xl mr-5">Summer classes?</label>
@@ -263,37 +309,20 @@ const InfoDetail = ({
       >
         <label className="text-xl mr-5">Which one?</label>
         <Dropdown
-          options={majors}
+          options={[]}
           onSelect={setDoubleMajor}
           defaultOption={doubleMajor}
         />
-      </div>
-      <div className="flex flex-row justify-center items-center">
-        <label className="text-xl mr-5">Minor?</label>
-        <Dropdown
-          options={['Yep', 'No, thanks']}
-          onSelect={showMinor}
-          defaultOption={
-            wantsMinor != null ? (wantsMinor ? 'Yep' : 'No, thanks') : undefined
-          }
-        />
-      </div>
-      <div
-        className="flex flex-row justify-center items-center"
-        hidden={!minorSelect}
-      >
-        <label className="text-xl mr-5">Which one?</label>
-        <Dropdown options={majors} onSelect={setMinor} defaultOption={minor} />
       </div>
     </FormModal>
   );
 };
 
+const daysOfWeek = ['M', 'T', 'W', 'Th', 'F'];
+
 const SchedulePreferences = ({
-  wantsMonday,
-  setWantsMonday,
-  wantsFriday,
-  setWantsFriday,
+  prefNoDays,
+  setPrefNoDays,
   earliestClassTime,
   setEarliestClassTime,
   latestClassTime,
@@ -302,36 +331,31 @@ const SchedulePreferences = ({
   handleBackClick = () => {},
   validate = () => {}
 }) => {
-  const setMonday = (option) => {
-    setWantsMonday(option == 'Yep');
-  };
-
-  const setFriday = (option) => {
-    setWantsFriday(option == 'Yep');
+  const toggleDay = (day) => {
+    if (prefNoDays.includes(day)) {
+      setPrefNoDays(prefNoDays.filter(d => d !== day));
+    } else {
+      setPrefNoDays([...prefNoDays, day]);
+    }
   };
 
   return (
     <FormModal handleClick={handleNextClick} handleBackClick={handleBackClick} validate={validate}>
       <div className="p-4">
-        <div className="flex flex-row justify-center items-center">
-          <label className="text-xl mr-5">Okay with Monday classes?</label>
-          <Dropdown
-            options={['Yep', 'No, thanks']}
-            onSelect={setMonday}
-            defaultOption={
-              wantsMonday != null ? (wantsMonday ? 'Yep' : 'No, thanks') : undefined
-            }
-          />
-        </div>
-        <div className="flex flex-row justify-center items-center">
-          <label className="text-xl mr-5">Okay with Friday classes?</label>
-          <Dropdown
-            options={['Yep', 'No, thanks']}
-            onSelect={setFriday}
-            defaultOption={
-              wantsFriday != null ? (wantsFriday ? 'Yep' : 'No, thanks') : undefined
-            }
-          />
+        <div className="flex flex-row justify-center items-center mb-4">
+          <label className="text-xl mr-5">Prefer no class days on:</label>
+          <div className="flex flex-row gap-2">
+            {daysOfWeek.map((day, idx) => (
+              <button
+                key={idx}
+                type="button"
+                className={`px-3 py-1 rounded-lg border transition ${prefNoDays.includes(day) ? 'bg-gray-900 text-white border-gray-900' : 'bg-gray-100 text-black border-gray-300'}`}
+                onClick={() => toggleDay(day)}
+              >
+                {day}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
       <div className="flex flex-row justify-center items-center">
@@ -356,6 +380,228 @@ const SchedulePreferences = ({
       </div>
     </FormModal>
   )
+};
+
+const InstructorAutocomplete = ({ selected, setSelected }) => {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const timeoutRef = useRef();
+
+  const fetchInstructors = async (q) => {
+    if (!q) {
+      setResults([]);
+      return;
+    }
+    try {
+      const res = await fetch(`http://localhost:3000/instructors/search?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      setResults(data.filter(name => !selected.includes(name)));
+    } catch (e) {
+      setResults([]);
+    }
+  };
+
+  const onChange = (e) => {
+    const val = e.target.value;
+    setQuery(val);
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => fetchInstructors(val), 200);
+    setShowDropdown(true);
+  };
+
+  const onSelect = (name) => {
+    setSelected([...selected, name]);
+    setQuery('');
+    setResults([]);
+    setShowDropdown(false);
+  };
+
+  const onRemove = (name) => {
+    setSelected(selected.filter(n => n !== name));
+  };
+
+  return (
+    <div className="relative w-full">
+      <div className="flex flex-wrap gap-2 mb-1">
+        {selected.map(name => (
+          <span key={name} className="bg-blue-900 text-white px-2 py-1 rounded">
+            {name}
+            <button onClick={() => onRemove(name)} className="ml-1 text-white">&times;</button>
+          </span>
+        ))}
+      </div>
+      <input
+        type="text"
+        value={query}
+        onChange={onChange}
+        onFocus={() => setShowDropdown(true)}
+        className="border rounded p-1 w-full"
+        placeholder="Search instructors..."
+      />
+      {showDropdown && results.length > 0 && (
+        <div className="absolute bg-white border w-full z-10 max-h-40 overflow-y-auto">
+          {results.map(name => (
+            <div
+              key={name}
+              className="p-2 hover:bg-blue-100 cursor-pointer"
+              onClick={() => onSelect(name)}
+            >
+              {name}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const PreferencesStep = ({
+  leastCoursesPerTerm,
+  setLeastCoursesPerTerm,
+  maxCoursesPerTerm,
+  setMaxCoursesPerTerm,
+  prefInstructors,
+  setPrefInstructors,
+  prefBuildings,
+  setPrefBuildings,
+  handleNextClick,
+  handleBackClick
+}) => {
+  const isValid =
+    maxCoursesPerTerm > leastCoursesPerTerm &&
+    maxCoursesPerTerm <= 6 &&
+    leastCoursesPerTerm >= 1;
+
+  let errorMsg = '';
+  if (maxCoursesPerTerm <= leastCoursesPerTerm) {
+    errorMsg = 'Max courses per term must be greater than least courses per term.';
+  } else if (maxCoursesPerTerm > 6) {
+    errorMsg = 'Max courses per term cannot exceed 6.';
+  }
+
+  return (
+    <FormModal handleClick={isValid ? handleNextClick : () => {}} handleBackClick={handleBackClick}>
+      <div className="p-4 flex flex-col gap-6">
+        <div className="flex flex-row items-center gap-4">
+          <label className="text-xl w-64">Least courses per term:</label>
+          <input
+            type="number"
+            min={1}
+            value={leastCoursesPerTerm}
+            onChange={e => setLeastCoursesPerTerm(Number(e.target.value))}
+            className="border rounded p-1 w-24"
+          />
+        </div>
+        <div className="flex flex-row items-center gap-4">
+          <label className="text-xl w-64">Max courses per term:</label>
+          <input
+            type="number"
+            min={1}
+            value={maxCoursesPerTerm}
+            onChange={e => setMaxCoursesPerTerm(Number(e.target.value))}
+            className="border rounded p-1 w-24"
+          />
+        </div>
+        {errorMsg && (
+          <div className="text-red-600 font-semibold">{errorMsg}</div>
+        )}
+        <div className="flex flex-row items-center gap-4">
+          <label className="text-xl w-64">Preferred instructors:</label>
+          <div className="flex-1">
+            <InstructorAutocomplete selected={prefInstructors} setSelected={setPrefInstructors} />
+          </div>
+        </div>
+        <div className="flex flex-row items-center gap-4">
+          <label className="text-xl w-64">Preferred buildings:</label>
+          <input
+            type="text"
+            value={prefBuildings.join(', ')}
+            onChange={e => setPrefBuildings(e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+            className="border rounded p-1 flex-1"
+            placeholder="e.g. MS, SCI"
+          />
+        </div>
+      </div>
+    </FormModal>
+  );
+};
+
+const AdvancedPreferencesStep = ({
+  allowWarnings,
+  setAllowWarnings,
+  allowPrimaryConflicts,
+  setAllowPrimaryConflicts,
+  allowSecondaryConflicts,
+  setAllowSecondaryConflicts,
+  prefPriority,
+  setPrefPriority,
+  handleNextClick,
+  handleBackClick
+}) => {
+  // Drag and drop logic
+  const [draggedIdx, setDraggedIdx] = useState(null);
+
+  const onDragStart = (idx) => setDraggedIdx(idx);
+  const onDragOver = (e) => e.preventDefault();
+  const onDrop = (idx) => {
+    if (draggedIdx === null || draggedIdx === idx) return;
+    const newOrder = [...prefPriority];
+    const [removed] = newOrder.splice(draggedIdx, 1);
+    newOrder.splice(idx, 0, removed);
+    setPrefPriority(newOrder);
+    setDraggedIdx(null);
+  };
+
+  return (
+    <FormModal handleClick={handleNextClick} handleBackClick={handleBackClick}>
+      <div className="p-4 flex flex-col gap-6">
+        <div className="flex flex-row items-center gap-4">
+          <label className="text-xl w-64">Ignore unenforced requisites</label>
+          <input
+            type="checkbox"
+            checked={allowWarnings}
+            onChange={e => setAllowWarnings(e.target.checked)}
+            className="w-6 h-6 accent-blue-900"
+          />
+        </div>
+        <div className="flex flex-row items-center gap-4">
+          <label className="text-xl w-64">Allow lecture conflicts</label>
+          <input
+            type="checkbox"
+            checked={allowPrimaryConflicts}
+            onChange={e => setAllowPrimaryConflicts(e.target.checked)}
+            className="w-6 h-6 accent-blue-900"
+          />
+        </div>
+        <div className="flex flex-row items-center gap-4">
+          <label className="text-xl w-64">Allow discussion conflicts</label>
+          <input
+            type="checkbox"
+            checked={allowSecondaryConflicts}
+            onChange={e => setAllowSecondaryConflicts(e.target.checked)}
+            className="w-6 h-6 accent-blue-900"
+          />
+        </div>
+        <div className="flex flex-col gap-2 mt-4">
+          <label className="text-xl mb-2">Rank your preferences (drag to reorder):</label>
+          {prefPriority.map((item, idx) => (
+            <div
+              key={item}
+              draggable
+              onDragStart={() => onDragStart(idx)}
+              onDragOver={onDragOver}
+              onDrop={() => onDrop(idx)}
+              className={`flex items-center gap-2 px-4 py-2 rounded shadow cursor-move bg-gray-100 border border-gray-300 ${draggedIdx === idx ? 'opacity-50' : ''}`}
+              style={{ userSelect: 'none' }}
+            >
+              <span className="w-32 capitalize">{item}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </FormModal>
+  );
 };
 
 const ClassSelect = ({
@@ -419,7 +665,7 @@ const ClassSelect = ({
                   key={index}
                   className={`pl-4 pr-4 pt-2 pb-2 border rounded-lg text-center cursor-pointer transition ${
                     selectedItems.has(item)
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-blue-900 text-white'
                       : 'bg-gray-100'
                   }`}
                   onClick={() => toggleItem(item)}
@@ -515,13 +761,6 @@ const SummaryView = ({
           ) : (
             <></>
           )}
-          {data.wantsMinor ? (
-            <span>
-              <strong>Minor:</strong> {data.minor}
-            </span>
-          ) : (
-            <></>
-          )}
           <span>
             <strong>Summer Classes?</strong>{' '}
             {data.wantsSummerClasses ? 'Yes' : 'No'}
@@ -540,10 +779,8 @@ const SummaryView = ({
             Edit
           </a>
           <span>
-            <strong>Monday classes?</strong> {data.wantsMonday ? 'Ok' : 'No'}
-          </span>
-          <span>
-            <strong>Friday classes?</strong> {data.wantsFriday ? 'Ok' : 'No'}
+            <strong>Prefer no class days on:</strong>{' '}
+            {data.prefNoDays.join(', ')}
           </span>
           <span>
             <strong>Earliest start time:</strong>{' '}
@@ -558,8 +795,78 @@ const SummaryView = ({
   );
 };
 
+// Grade options for transcript
+const gradeOptions = [
+  'A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'D-', 'F'
+];
+
+const TranscriptStep = ({ transcript, setTranscript, handleNextClick, handleBackClick }) => {
+  // Use the same course list as in ClassSelect
+  const allCourses = Object.values(classes).flat();
+  const [selectedCourses, setSelectedCourses] = useState(Object.keys(transcript));
+
+  const toggleCourse = (course) => {
+    let newSelected;
+    if (selectedCourses.includes(course)) {
+      newSelected = selectedCourses.filter(c => c !== course);
+      const newTranscript = { ...transcript };
+      delete newTranscript[course];
+      setTranscript(newTranscript);
+    } else {
+      newSelected = [...selectedCourses, course];
+      setTranscript({ ...transcript, [course]: 'A' }); // default grade
+    }
+    setSelectedCourses(newSelected);
+  };
+
+  const setGrade = (course, grade) => {
+    setTranscript({ ...transcript, [course]: grade });
+  };
+
+  return (
+    <FormModal handleClick={handleNextClick} handleBackClick={handleBackClick}>
+      <div className="p-4">
+        <div className="mb-4">
+          <strong>Select completed courses and assign a grade:</strong>
+        </div>
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          {allCourses.map((course, idx) => {
+            const isSelected = selectedCourses.includes(course);
+            return (
+              <div
+                key={idx}
+                className={`pl-4 pr-4 pt-2 pb-2 border rounded-lg text-center cursor-pointer transition ${isSelected ? 'bg-blue-900 text-white' : 'bg-gray-100'}`}
+                onClick={() => toggleCourse(course)}
+              >
+                <div>{course}</div>
+                {isSelected && (
+                  <div className="mt-2">
+                    <select
+                      value={transcript[course] || 'A'}
+                      onClick={e => e.stopPropagation()}
+                      onChange={e => setGrade(course, e.target.value)}
+                      className="border rounded p-1 bg-blue-900 text-white"
+                    >
+                      {gradeOptions.map(g => (
+                        <option key={g} value={g}>{g}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </FormModal>
+  );
+};
+
 export const Form = () => {
-  const [step, setStep] = useState(4);
+  const [step, setStep] = useState(1);
+  useEffect(() => {
+    setStep(1);
+  }, []);
   const handleNextClick = () => setStep(step + 1);
   const handleBackClick = () => setStep(step - 1);
 
@@ -570,18 +877,33 @@ export const Form = () => {
   const [major, setMajor] = useState('');
   const [wantsDbMajor, setWantsDbMajor] = useState(null);
   const [doubleMajor, setDoubleMajor] = useState('');
-  const [wantsMinor, setWantsMinor] = useState(null);
-  const [minor, setMinor] = useState('');
   const [wantsSummerClasses, setWantsSummerClasses] = useState(null);
   const [maxWorkload, setMaxWorkload] = useState(-1);
-  const [wantsMonday, setWantsMonday] = useState(true);
-  const [wantsFriday, setWantsFriday] = useState(true);
   const [earliestClassTime, setEarliestClassTime] = useState(null);
   const [latestClassTime, setLatestClassTime] = useState(null);
 
+  const [endYear, setEndYear] = useState(null);
+  const [endQuarter, setEndQuarter] = useState('');
+
+  // Transcript: { 'COM SCI|31': 'A', ... }
+  const [transcript, setTranscript] = useState({});
+
+  // Preferences
+  const [allowWarnings, setAllowWarnings] = useState(true);
+  const [allowPrimaryConflicts, setAllowPrimaryConflicts] = useState(true);
+  const [allowSecondaryConflicts, setAllowSecondaryConflicts] = useState(true);
+  const [prefPriority, setPrefPriority] = useState(['time', 'building', 'days', 'instructor']);
+  const [prefEarliest, setPrefEarliest] = useState('09:00');
+  const [prefLatest, setPrefLatest] = useState('18:00');
+  const [prefNoDays, setPrefNoDays] = useState([]); // e.g. ['F']
+  const [prefBuildings, setPrefBuildings] = useState([]); // e.g. ['MS', 'SCI']
+  const [prefInstructors, setPrefInstructors] = useState([]); // e.g. ['Smith']
+  const [maxCoursesPerTerm, setMaxCoursesPerTerm] = useState(5);
+  const [leastCoursesPerTerm, setLeastCoursesPerTerm] = useState(3);
+
   const icebreakerValidate = () => {
     return fullName.length > 0 &&
-      school_options.includes(school) &&
+      school && school.length > 0 &&
         ["Fall", "Winter", "Spring"].includes(gradQuarter) &&
           gradYear > 2023 &&
             gradYear < 2040;
@@ -590,16 +912,27 @@ export const Form = () => {
   const infoDetailValidate = () => {
     return majors.includes(major) &&
       (!wantsDbMajor || majors.includes(doubleMajor)) &&
-        (!wantsMinor || majors.includes(minor)) &&
-          maxWorkload >= 12;
+        maxWorkload >= 12;
   };
 
   const scheduleValidate = () => {
     return earliestClassTime != null && latestClassTime != null;
   };
 
+  const navigate = useNavigate();
+  const onSignOut = async () => {
+    await handleSignOut();
+    navigate("/");
+  };
+
   return (
-    <div className="w-screen h-screen flex justify-center items-center bg-gray-900">
+    <div className="w-screen h-screen flex justify-center items-center bg-gray-900 relative">
+      <button
+        onClick={onSignOut}
+        className="absolute top-6 right-8 text-white bg-blue-900 px-4 py-2 rounded-lg shadow hover:bg-blue-700 z-50"
+      >
+        SIGN OUT
+      </button>
       {step == 1 ? (
         <Icebreaker
           handleNextClick={handleNextClick}
@@ -630,14 +963,11 @@ export const Form = () => {
           setWantsDbMajor={setWantsDbMajor}
           doubleMajor={doubleMajor}
           setDoubleMajor={setDoubleMajor}
-          wantsMinor={wantsMinor}
-          setWantsMinor={setWantsMinor}
-          minor={minor}
-          setMinor={setMinor}
           wantsSummerClasses={wantsSummerClasses}
           setWantsSummerClasses={setWantsSummerClasses}
           maxWorkload={maxWorkload}
           setMaxWorkload={setMaxWorkload}
+          school={school}
           validate={infoDetailValidate}
         />
       ) : (
@@ -645,10 +975,8 @@ export const Form = () => {
       )}
       {step == 3 ? (
         <SchedulePreferences
-          wantsMonday={wantsMonday}
-          setWantsMonday={setWantsMonday}
-          wantsFriday={wantsFriday}
-          setWantsFriday={setWantsFriday}
+          prefNoDays={prefNoDays}
+          setPrefNoDays={setPrefNoDays}
           earliestClassTime={earliestClassTime}
           latestClassTime={latestClassTime}
           setEarliestClassTime={setEarliestClassTime}
@@ -661,15 +989,48 @@ export const Form = () => {
         <></>
       )}
       {step == 4 ? (
-        <ClassSelect
+        <PreferencesStep
+          leastCoursesPerTerm={leastCoursesPerTerm}
+          setLeastCoursesPerTerm={setLeastCoursesPerTerm}
+          maxCoursesPerTerm={maxCoursesPerTerm}
+          setMaxCoursesPerTerm={setMaxCoursesPerTerm}
+          prefInstructors={prefInstructors}
+          setPrefInstructors={setPrefInstructors}
+          prefBuildings={prefBuildings}
+          setPrefBuildings={setPrefBuildings}
           handleNextClick={handleNextClick}
           handleBackClick={handleBackClick}
-          items={['hey', 'COM SCI 35L', 'hi', '1', '2', '3', '4', '5']}
         />
       ) : (
         <></>
       )}
       {step == 5 ? (
+        <AdvancedPreferencesStep
+          allowWarnings={allowWarnings}
+          setAllowWarnings={setAllowWarnings}
+          allowPrimaryConflicts={allowPrimaryConflicts}
+          setAllowPrimaryConflicts={setAllowPrimaryConflicts}
+          allowSecondaryConflicts={allowSecondaryConflicts}
+          setAllowSecondaryConflicts={setAllowSecondaryConflicts}
+          prefPriority={prefPriority}
+          setPrefPriority={setPrefPriority}
+          handleNextClick={handleNextClick}
+          handleBackClick={handleBackClick}
+        />
+      ) : (
+        <></>
+      )}
+      {step == 6 ? (
+        <TranscriptStep
+          transcript={transcript}
+          setTranscript={setTranscript}
+          handleNextClick={handleNextClick}
+          handleBackClick={handleBackClick}
+        />
+      ) : (
+        <></>
+      )}
+      {step == 7 ? (
         <SummaryView
           handleBackClick={handleBackClick}
           setStep={setStep}
@@ -681,14 +1042,20 @@ export const Form = () => {
             major: major,
             doubleMajor: doubleMajor,
             wantsDbMajor: wantsDbMajor,
-            minor: minor,
-            wantsMinor: wantsMinor,
             wantsSummerClasses: wantsSummerClasses,
             maxWorkload: maxWorkload,
-            wantsMonday: wantsMonday,
-            wantsFriday: wantsFriday,
+            prefNoDays: prefNoDays,
             earliestClassTime: earliestClassTime,
-            latestClassTime: latestClassTime
+            latestClassTime: latestClassTime,
+            transcript: transcript,
+            leastCoursesPerTerm: leastCoursesPerTerm,
+            maxCoursesPerTerm: maxCoursesPerTerm,
+            prefInstructors: prefInstructors,
+            prefBuildings: prefBuildings,
+            allowWarnings: allowWarnings,
+            allowPrimaryConflicts: allowPrimaryConflicts,
+            allowSecondaryConflicts: allowSecondaryConflicts,
+            prefPriority: prefPriority
           }}
         />
       ) : (
