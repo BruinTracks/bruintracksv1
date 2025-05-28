@@ -706,7 +706,7 @@ const SummaryView = ({
   handleBackClick = () => {},
   setStep = () => {},
 }) => {
-  const { session, loading } = useAuth();
+  const { session } = useAuth();
   const navigate = useNavigate();
 
   const handleCreateProfile = async () => {
@@ -716,8 +716,7 @@ const SummaryView = ({
 
     const { error } = await supabase.from('profiles').insert([
       {
-        profile_id: session.user.id, // Use the same id to match what you're checking for in GoogleAuthRouter
-        // You can add other default fields here if your table requires them
+        profile_id: session.user.id,
         complete: true,
         full_name: "hi",
         created_at: "hi"
@@ -732,18 +731,67 @@ const SummaryView = ({
   };
 
   const handleGenerateSchedule = async () => {
-    // Logic to generate schedule
-    console.log('Generating schedule with data:', data);
-    const selectedMajors = [data.major, data.doubleMajor].filter(Boolean);
-    const { data: jsonData, error } = await supabase
-      .from('major_requisites')
-      .select('json_data')
-      .in('major_name', selectedMajors);
+    try {
+      // Get selected majors
+      const selectedMajors = [data.majorName];
+      if (data.doubleMajorName) {
+        selectedMajors.push(data.doubleMajorName);
+      }
+      console.log("Selected majors:", selectedMajors);
 
-    if (error) {
-      console.error('Error fetching major requisites:', error);
-    } else {
-      console.log('Fetched major requisites:', jsonData);
+      // Fetch major requisites from Supabase
+      const { data: majorRequisites, error: supabaseError } = await supabase
+        .from('major_requisites')
+        .select('json_data')
+        .in('major_name', selectedMajors);
+
+      if (supabaseError) {
+        console.error("Error fetching major requisites:", supabaseError);
+        return;
+      }
+
+      if (!majorRequisites || majorRequisites.length === 0) {
+        console.log("No major requisites found for selected majors:", selectedMajors);
+        return;
+      }
+
+      console.log("Raw JSON data from Supabase:", JSON.stringify(majorRequisites, null, 2));
+
+      // Process the JSON data from each major
+      const processedRequirements = majorRequisites.map(req => {
+        console.log("Processing requirement:", JSON.stringify(req.json_data, null, 2));
+        return req.json_data;
+      });
+      console.log("Processed requirements:", JSON.stringify(processedRequirements, null, 2));
+
+      // Convert transcript object to array of course IDs
+      const completedCourses = Object.keys(data.transcript || {}).map(course => {
+        // Convert from "COM SCI|31" format to "COM SCI 31" format
+        return course.replace('|', ' ');
+      });
+
+      // Call the get-courses-to-schedule endpoint
+      const response = await fetch('http://localhost:3000/courses/get-courses-to-schedule', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          jsonData: processedRequirements,
+          transcript: completedCourses
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Error response from server:", errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const coursesList = await response.json();
+      console.log("Courses to schedule:", JSON.stringify(coursesList, null, 2));
+    } catch (error) {
+      console.error("Error in handleGenerateSchedule:", error);
     }
   };
 
@@ -820,7 +868,7 @@ const SummaryView = ({
       </div>
       <button
         onClick={handleGenerateSchedule}
-        className="mt-4 bg-gray-900 text-white px-4 py-2 rounded-lg shadow hover:bg-gray-700"
+        className="mt-4 bg-blue-900 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700"
       >
         Generate Schedule
       </button>
@@ -1136,7 +1184,9 @@ export const Form = () => {
             gradQuarter: gradQuarter,
             gradYear: gradYear,
             major: major,
+            majorName: majorName,
             doubleMajor: doubleMajor,
+            doubleMajorName: doubleMajorName,
             wantsDbMajor: wantsDbMajor,
             maxWorkload: maxWorkload,
             prefNoDays: prefNoDays,

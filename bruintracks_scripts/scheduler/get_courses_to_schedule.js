@@ -143,30 +143,27 @@ async function extractCourses(chunks) {
   console.log(JSON.stringify(finalList, null, 2));
 
   fs.writeFileSync("final_course_list.json", JSON.stringify(finalList, null, 2));
-}}
+}
 
 // Kickoff
-(async () => {
-  const majorName = "ComputerScienceBS";
-  const requirements = await getMajorRequirements(majorName);
-
-  if (requirements?.json_data) {
-      chunks = await chunkMajorRequirements(majorName, requirements.json_data);
-      await extractCourses(chunks);
+(async (jsonData) => {
+  if (jsonData) {
+    const chunks = await chunkMajorRequirements("UserMajor", jsonData);
+    await extractCourses(chunks);
+  } else {
+    console.error('No JSON data provided.');
   }
 })();
 
-
+// Example API endpoint usage
+// const jsonData = { /* your json data */ };
 // (async () => {
-//   const majorNames = ["ComputerScienceBS"];
-//   chunks = []
-//   for(major in majorNames){
-//     const requirements = await getMajorRequirements(majorName);
-
-//     if (requirements?.json_data) {
-//       const extraCourses = await chunkMajorRequirements(majorName, requirements.json_data);
-//       chunks.append(extraCourses)
-//   }
-// }
-// await extractCourses(chunks);
+//   await (async (jsonData) => {
+//     if (jsonData) {
+//       const chunks = await chunkMajorRequirements("UserMajor", jsonData);
+//       await extractCourses(chunks);
+//     } else {
+//       console.error('No JSON data provided.');
+//     }
+//   })(jsonData);
 // })();
