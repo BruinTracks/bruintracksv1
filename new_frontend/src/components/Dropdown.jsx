@@ -69,7 +69,7 @@ export const Dropdown = ({
         >
           {options.map((option) => (
             <div
-              className="p-4 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600"
+              className="p-4 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 dark:text-white"
               onClick={() => selectOption(option)}
             >
               {option}

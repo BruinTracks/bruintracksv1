@@ -7,10 +7,13 @@ import { Banner } from './components/Banner';
 import { Form } from './components/Form';
 import { HomePage } from './components/HomePage';
 import CoursePlanDetailPage from "./components/CoursePlanDetailPage";
+import { GoogleAuthRouter } from './GoogleAuthRouter';
 
 function App() {
+
   return (
     <Router>
+      <GoogleAuthRouter />
       <Routes>
         <Route path="/" element={<Banner />} />
         <Route path="/Form" element={<Form />} />

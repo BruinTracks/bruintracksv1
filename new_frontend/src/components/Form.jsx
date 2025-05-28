@@ -8,6 +8,9 @@ import { ArrowLeftCircle, ArrowRightCircle } from 'react-bootstrap-icons';
 import { Dropdown } from './Dropdown';
 import { InputField } from './InputField';
 import { useNavigate } from 'react-router-dom';
+import { handleSignOut } from '../supabaseClient';
+import { useAuth } from '../AuthContext';
+import { supabase } from '../supabaseClient';
 
 const school_options = [
   'College of Letters and Sciences',
@@ -55,14 +58,22 @@ const classes = {
     'MATH 61',
     'MATH 70',
     'MATH 115A',
-  ],
+  ]
 };
 
-const FormModal = ({ children, handleClick, handleBackClick }) => {
+const FormModal = ({ children, handleClick, handleBackClick, validate }) => {
+  const [isInvalid, setIsInvalid] = useState(false);
+  const navigate = useNavigate();
+
+  const onSignOut = () => {
+    handleSignOut();
+    navigate("/");
+  };
+
   return (
     <motion.div
       className="bg-gray-100 rounded-xl  border border-gray-700"
-      style={{ width: '50%', 'padding-top': '2%', 'padding-bottom': '2%' }}
+      style={{ width: '50%', 'paddingTop': '2%', 'paddingBottom': '2%' }}
       whileHover={{ scale: 0.95, opacity: 1 }}
       initial={{ opacity: 0, scale: 0 }}
       animate={{ opacity: 0.75, scale: 1 }}
@@ -70,6 +81,7 @@ const FormModal = ({ children, handleClick, handleBackClick }) => {
     >
       <div className="text-black flex flex-col items-center p-8 mt-5 space-y-4">
         {children}
+        { isInvalid && <span className="text-red-800 mb-5 font-bold">Make sure to complete all required fields.</span> }
         <div className="flex flex-row">
           {handleBackClick != null ? (
             <button
@@ -81,12 +93,20 @@ const FormModal = ({ children, handleClick, handleBackClick }) => {
           ) : (
             <></>
           )}
-          <button
-            onClick={handleClick}
-            className="text-black inline-block mt-1 hover:text-blue-500"
-          >
-            <ArrowRightCircle size={30} />
-          </button>
+          <div className="flex flex-col">
+            <button
+              onClick={validate ? () => (validate() ? handleClick() : setIsInvalid(true)) : handleClick}
+              className=" text-black inline-block mt-1 hover:text-blue-500"
+            >
+              <ArrowRightCircle size={30} />
+            </button>
+            <button
+              onClick={onSignOut}
+              className=" text-black inline-block mt-1 hover:text-blue-500"
+            >
+              SIGN OUT
+            </button>
+          </div>
         </div>
       </div>
     </motion.div>
@@ -103,9 +123,10 @@ const Icebreaker = ({
   gradYear = undefined,
   setGradYear = () => {},
   handleNextClick = () => {},
+  validate = null
 }) => {
   return (
-    <FormModal handleClick={handleNextClick} handleBackClick={null}>
+    <FormModal handleClick={handleNextClick} validate={validate} handleBackClick={null}>
       <p className="text-4xl font-bold mt-4">But first,</p>
       <p className="text-4xl font-light mb-4">tell us about yourself!</p>
       <br />
@@ -166,6 +187,7 @@ const InfoDetail = ({
   setWantsSummerClasses = () => {},
   maxWorkload = -1,
   setMaxWorkload = () => {},
+  validate = () => {}
 }) => {
   const [dbMajorSelect, setDbMajorSelect] = useState(wantsDbMajor);
   const [minorSelect, setMinorSelect] = useState(wantsMinor);
@@ -189,6 +211,7 @@ const InfoDetail = ({
       handleClick={handleNextClick}
       handleBackClick={handleBackClick}
       back={true}
+      validate={validate}
     >
       <p className="text-4xl font-bold mb-4">Tell us more!</p>
       <br />
@@ -276,7 +299,8 @@ const SchedulePreferences = ({
   latestClassTime,
   setLatestClassTime,
   handleNextClick = () => {},
-  handleBackClick = () => {}
+  handleBackClick = () => {},
+  validate = () => {}
 }) => {
   const setMonday = (option) => {
     setWantsMonday(option == 'Yep');
@@ -287,7 +311,7 @@ const SchedulePreferences = ({
   };
 
   return (
-    <FormModal handleClick={handleNextClick} handleBackClick={handleBackClick}>
+    <FormModal handleClick={handleNextClick} handleBackClick={handleBackClick} validate={validate}>
       <div className="p-4">
         <div className="flex flex-row justify-center items-center">
           <label className="text-xl mr-5">Okay with Monday classes?</label>
@@ -343,6 +367,7 @@ const ClassSelect = ({
 }) => {
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [dept, setDept] = useState(defaultDept);
+  const [myClasses, setMyClasses] = useState([]);
 
   const toggleItem = (item) => {
     setSelectedItems((prev) => {
@@ -356,37 +381,55 @@ const ClassSelect = ({
     });
   };
 
+  useEffect(() => {
+    console.log("testing");
+    fetch("http://localhost:3000/get_courses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        "majorName": "ComputerScienceBS"
+      }),
+    }).then(res => res.json()).then((res) => {
+      setMyClasses(res);
+    });
+  }, []);
+
+  console.log(myClasses);
+
   return (
     <FormModal handleClick={handleNextClick} handleBackClick={handleBackClick}>
       <div className="p-4">
         <Dropdown
-          options={['ALL', 'COM SCI', 'EC ENGR', 'MATH']}
+          options={['ALL', 'My Major', 'COM SCI', 'EC ENGR', 'MATH']}
           onSelect={setDept}
           defaultOption={dept}
           placeholder={'Department'}
         />
 
-        <div
-          className={`grid gap-2`}
-          style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
-        >
-          {(dept != 'ALL' ? classes[dept] : Object.values(classes).flat()).map(
-            (item, index) => (
-              <div
-                key={index}
-                className={`pl-4 pr-4 pt-2 pb-2 border rounded-lg text-center cursor-pointer transition ${
-                  selectedItems.has(item)
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100'
-                }`}
-                onClick={() => toggleItem(item)}
-              >
-                {item}
-              </div>
-            )
-          )}
+        <div className="max-h-50 overflow-y-auto">
+          <div
+            className={`grid gap-2`}
+            style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+          >
+            {(dept == 'My Major' ? myClasses : dept != 'ALL' ? classes[dept] : Object.values(classes).flat()).map(
+              (item, index) => (
+                <div
+                  key={index}
+                  className={`pl-4 pr-4 pt-2 pb-2 border rounded-lg text-center cursor-pointer transition ${
+                    selectedItems.has(item)
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100'
+                  }`}
+                  onClick={() => toggleItem(item)}
+                >
+                  {item}
+                </div>
+              )
+            )}
+          </div>
         </div>
-
         <div className="mt-4 p-2 border rounded">
           <strong>In-progress/completed classes:</strong>{' '}
           {Array.from(selectedItems).join(', ') || 'None'}
@@ -401,10 +444,35 @@ const SummaryView = ({
   handleBackClick = () => {},
   setStep = () => {},
 }) => {
+  const { session, loading } = useAuth();
   const navigate = useNavigate();
+
+  const handleCreateProfile = async () => {
+    if (!session || !session.user) {
+      return;
+    }
+
+    const { error } = await supabase.from('profiles').insert([
+      {
+        profile_id: session.user.id, // Use the same id to match what you're checking for in GoogleAuthRouter
+        // You can add other default fields here if your table requires them
+        complete: true,
+        full_name: "hi",
+        created_at: "hi"
+      },
+    ]);
+
+    if (error) {
+      console.error(error);
+    } else {
+      navigate('/Home');
+    }
+
+  };
+
   return (
     <FormModal
-      handleClick={() => navigate('/Home')}
+      handleClick={handleCreateProfile}
       handleBackClick={handleBackClick}
     >
       <p className="text-4xl font-bold mb-4">Registration Summary</p>
@@ -491,7 +559,7 @@ const SummaryView = ({
 };
 
 export const Form = () => {
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(4);
   const handleNextClick = () => setStep(step + 1);
   const handleBackClick = () => setStep(step - 1);
 
@@ -508,8 +576,27 @@ export const Form = () => {
   const [maxWorkload, setMaxWorkload] = useState(-1);
   const [wantsMonday, setWantsMonday] = useState(true);
   const [wantsFriday, setWantsFriday] = useState(true);
-  const [earliestClassTime, setEarliestClassTime] = useState('');
-  const [latestClassTime, setLatestClassTime] = useState('');
+  const [earliestClassTime, setEarliestClassTime] = useState(null);
+  const [latestClassTime, setLatestClassTime] = useState(null);
+
+  const icebreakerValidate = () => {
+    return fullName.length > 0 &&
+      school_options.includes(school) &&
+        ["Fall", "Winter", "Spring"].includes(gradQuarter) &&
+          gradYear > 2023 &&
+            gradYear < 2040;
+  };
+
+  const infoDetailValidate = () => {
+    return majors.includes(major) &&
+      (!wantsDbMajor || majors.includes(doubleMajor)) &&
+        (!wantsMinor || majors.includes(minor)) &&
+          maxWorkload >= 12;
+  };
+
+  const scheduleValidate = () => {
+    return earliestClassTime != null && latestClassTime != null;
+  };
 
   return (
     <div className="w-screen h-screen flex justify-center items-center bg-gray-900">
@@ -524,6 +611,7 @@ export const Form = () => {
           setGradQuarter={setGradQuarter}
           gradYear={gradYear}
           setGradYear={setGradYear}
+          validate={icebreakerValidate}
         />
       ) : (
         <></>
@@ -550,6 +638,7 @@ export const Form = () => {
           setWantsSummerClasses={setWantsSummerClasses}
           maxWorkload={maxWorkload}
           setMaxWorkload={setMaxWorkload}
+          validate={infoDetailValidate}
         />
       ) : (
         <></>
@@ -561,10 +650,12 @@ export const Form = () => {
           wantsFriday={wantsFriday}
           setWantsFriday={setWantsFriday}
           earliestClassTime={earliestClassTime}
+          latestClassTime={latestClassTime}
           setEarliestClassTime={setEarliestClassTime}
           setLatestClassTime={setLatestClassTime}
           handleNextClick={handleNextClick}
           handleBackClick={handleBackClick}
+          validate={scheduleValidate}
         />
       ) : (
         <></>

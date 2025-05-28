@@ -6,11 +6,13 @@ import '../App.css';
 import { ArrowLeftCircle, ArrowRightCircle } from 'react-bootstrap-icons';
 import { Dropdown } from './Dropdown';
 import { InputField } from './InputField';
-import { useNavigate } from 'react-router-dom';
 import { Card } from './Card';
 import { Button } from './Button';
 import { Chatbox } from './Chatbox';
 import { FullCoursePlan } from './FullCoursePlan';
+import { handleSignOut } from '../supabaseClient';
+import { useNavigate, useLocation } from 'react-router-dom';
+
 const schedule = {
   Monday: [
     { time: '9:00 AM', course: 'CS 31 - Introduction to Computer Science' },
@@ -37,6 +39,13 @@ const schedule = {
 };
 
 export const HomePage = () => {
+  const navigate = useNavigate();
+
+  const onSignOut = () => {
+    handleSignOut();
+    navigate("/");
+  };
+
   return (
     <div className="bg-gray-900 min-h-screen min-w-screen text-white flex flex-col items-center pt-10 pl-5">
       <motion.h1
@@ -46,6 +55,7 @@ export const HomePage = () => {
       >
         My Dashboard
       </motion.h1>
+      <button onClick={onSignOut}>SIGN OUT</button>
       <div className="flex flex-col items-stretch mr-10">
         <motion.div
           className="flex-1 mt-6 space-y-6 ml-10 mr-10 bg-gray-500 p-5 items-stretch rounded-2xl"
