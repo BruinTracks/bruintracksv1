@@ -4,13 +4,13 @@ import '../main.jsx';
 import { motion } from 'framer-motion';
 import '../App.css';
 import { ArrowLeftCircle, ArrowRightCircle } from 'react-bootstrap-icons';
-import { Dropdown } from './Dropdown';
-import { InputField } from './InputField';
-import { Card } from './Card';
-import { Button } from './Button';
-import { Chatbox } from './Chatbox';
-import { FullCoursePlan } from './FullCoursePlan';
-import { handleSignOut } from '../supabaseClient';
+import { Dropdown } from './Dropdown.jsx';
+import { InputField } from './InputField.jsx';
+import { Card } from './Card.jsx';
+import { Button } from './Button.jsx';
+import { Chatbox } from './Chatbox.jsx';
+import { FullCoursePlan } from './FullCoursePlan.jsx';
+import { handleSignOut } from '../supabaseClient.js';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const schedule = {

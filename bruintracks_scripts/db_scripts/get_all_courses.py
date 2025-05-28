@@ -32,22 +32,26 @@ def scraper(driver, major, lst, s):
     for span in spans_in_anchors:
         txt = re.search(r"^(.*?)\s-\s*", span.text)
         if txt:
-            key = (txt.group(1))
-        if txt and key not in s:
-            s.add(key)
-    lst.append({'major_name': major, 'courses': list(s)})
+            key = txt.group(1)
+            if key not in s:
+                s.add(key)
+    
+    if not s:
+        print(f"No courses found for major: {major}")
+    else:
+        lst.append({'major_name': re.sub(r'(BS|BA)$', '', major), 'courses': list(s)})
     print(lst)
     return lst
 
 majors = [
-    "AerospaceEngineeringBS",
-    "BioengineeringBS",
-    "ChemicalEngineeringBS",
-    "CivilEngineeringBS",
-    "ComputerEngineeringBS",
-    "ComputerScienceandEngineeringBS",
-    "ComputerScienceBS",
-    "ElectricalEngineeringBS"
+    # "AerospaceEngineeringBS",
+    # "BioengineeringBS",
+    #  "ChemicalEngineeringBS",
+    # "CivilEngineeringBS",
+    # "ComputerEngineeringBS",
+     "ComputerScienceandEngineeringBS",
+    # "ComputerScienceBS",
+    # "ElectricalEngineeringBS"
 ]
 
 
@@ -59,11 +63,11 @@ def main():
 
     driver = webdriver.Chrome()
     lst = []
-    s = set()
     for major in majors:
+        s = set()  # Reset the set for each major
         scraper(driver, major, lst, s)
     lst = list(lst)
-    response = supabase.table('all_courses').insert(lst).execute()
+    response = supabase.table('all_courses').upsert(lst).execute()
     driver.quit()
     
          

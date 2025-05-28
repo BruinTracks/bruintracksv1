@@ -13,7 +13,7 @@ const __dirname  = path.dirname(__filename);
  */
 export const scheduleCourses = (req, res) => {
   // adjust the path if your get_courses.py lives elsewhere
-  const scriptPath = path.join(__dirname, '..', 'get_courses.py');
+  const scriptPath = path.join(__dirname, '..', 'scheduler.py');
 
   const py = spawn('python3', [scriptPath], {
     stdio: ['pipe', 'pipe', 'inherit']

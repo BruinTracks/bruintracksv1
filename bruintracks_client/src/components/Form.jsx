@@ -5,12 +5,12 @@ import '../main.jsx';
 import { motion } from 'framer-motion';
 import '../App.css';
 import { ArrowLeftCircle, ArrowRightCircle } from 'react-bootstrap-icons';
-import { Dropdown } from './Dropdown';
-import { InputField } from './InputField';
+import { Dropdown } from './Dropdown.jsx';
+import { InputField } from './InputField.jsx';
 import { useNavigate } from 'react-router-dom';
-import { handleSignOut } from '../supabaseClient';
-import { useAuth } from '../AuthContext';
-import { supabase } from '../supabaseClient';
+import { handleSignOut } from '../supabaseClient.js';
+import { useAuth } from '../AuthContext.jsx';
+import { supabase } from '../supabaseClient.js';
 
 const majors = [
   'CS',
@@ -729,7 +729,22 @@ const SummaryView = ({
     } else {
       navigate('/Home');
     }
+  };
 
+  const handleGenerateSchedule = async () => {
+    // Logic to generate schedule
+    console.log('Generating schedule with data:', data);
+    const selectedMajors = [data.major, data.doubleMajor].filter(Boolean);
+    const { data: jsonData, error } = await supabase
+      .from('major_requisites')
+      .select('json_data')
+      .in('major_name', selectedMajors);
+
+    if (error) {
+      console.error('Error fetching major requisites:', error);
+    } else {
+      console.log('Fetched major requisites:', jsonData);
+    }
   };
 
   return (
@@ -803,6 +818,12 @@ const SummaryView = ({
           </span>
         </motion.div>
       </div>
+      <button
+        onClick={handleGenerateSchedule}
+        className="mt-4 bg-gray-900 text-white px-4 py-2 rounded-lg shadow hover:bg-gray-700"
+      >
+        Generate Schedule
+      </button>
     </FormModal>
   );
 };
