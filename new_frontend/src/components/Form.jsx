@@ -104,14 +104,30 @@ const Icebreaker = ({
   validate = null
 }) => {
   const [schoolOptions, setSchoolOptions] = useState([]);
+
   useEffect(() => {
-    fetch('http://localhost:3000/schools')
-      .then(res => res.json())
-      .then(data => {
+    const fetchSchools = async () => {
+      try {
+        console.log('Fetching schools...');
+        const response = await fetch('http://localhost:3000/schools');
+        if (!response.ok) {
+          throw new Error('Failed to fetch schools');
+        }
+        const data = await response.json();
+        console.log('Fetched schools:', data);
         setSchoolOptions(data);
-        if (!school && data.length > 0) setSchool(data[0]);
-      });
+        if (!school && data.length > 0) {
+          console.log('Setting default school to:', data[0]);
+          setSchool(data[0]);
+        }
+      } catch (error) {
+        console.error('Error fetching schools:', error);
+      }
+    };
+
+    fetchSchools();
   }, []);
+
   return (
     <FormModal handleClick={handleNextClick} validate={validate} handleBackClick={null}>
       <p className="text-4xl font-bold mt-4">But first,</p>
@@ -133,6 +149,7 @@ const Icebreaker = ({
           options={schoolOptions}
           onSelect={setSchool}
           defaultOption={school}
+          placeholder="Select a school"
         />
       </div>
       <div className="flex flex-row justify-center items-center">
@@ -157,7 +174,7 @@ const Icebreaker = ({
   );
 };
 
-const MajorAutocomplete = ({ school, major, setMajor }) => {
+const MajorAutocomplete = ({ school, major, setMajor, setMajorName }) => {
   const [options, setOptions] = useState([]);
   const [query, setQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -166,28 +183,41 @@ const MajorAutocomplete = ({ school, major, setMajor }) => {
   useEffect(() => {
     if (!school) return;
     fetch(`http://localhost:3000/schools`)
-      .then(res => res.json())
-      .then(data => {
-        // Assume backend returns [{id, name}] in future, for now just name
-        // So we need to fetch all schools and find the id
-        fetch(`http://localhost:3000/schools/all`)
-          .then(res2 => res2.json())
-          .then(schools => {
-            const found = schools.find(s => s.name === school);
-            if (found) setSchoolId(found.id);
-            console.log(found.id);
-          });
-      });
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        return res.json();
+      })
+      .then(schools => {
+        const schoolIndex = schools.findIndex(s => 
+          s.toLowerCase() === school.toLowerCase()
+        );
+        if (schoolIndex !== -1) {
+          setSchoolId(schoolIndex + 1);
+        } else {
+          setSchoolId(null);
+        }
+      })
+      .catch(() => setSchoolId(null));
   }, [school]);
 
   useEffect(() => {
     if (!schoolId) return;
     fetch(`http://localhost:3000/majors?school_id=${schoolId}`)
       .then(res => res.json())
-      .then(data => setOptions(data));
+      .then(data => {
+        fetch('http://localhost:3000/majors/all')
+          .then(res2 => res2.json())
+          .then(allMajors => {
+            const filtered = allMajors.filter(m => data.includes(m.full_name));
+            setOptions(filtered);
+          });
+      })
+      .catch(() => setOptions([]));
   }, [schoolId]);
 
-  const filtered = options.filter(opt => opt.toLowerCase().includes(query.toLowerCase()));
+  const filtered = options.filter(opt => opt.full_name.toLowerCase().includes(query.toLowerCase()));
 
   return (
     <div className="relative w-full">
@@ -200,21 +230,23 @@ const MajorAutocomplete = ({ school, major, setMajor }) => {
           setShowDropdown(true);
         }}
         onFocus={() => setShowDropdown(true)}
+        onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
         className="border rounded p-1 w-full bg-gray-100"
         placeholder="Search majors..."
       />
       {showDropdown && filtered.length > 0 && (
-        <div className="absolute bg-white border w-full z-10 max-h-40 overflow-y-auto">
+        <div className="absolute bg-white border border-gray-300 rounded shadow-lg w-full z-50 max-h-60 overflow-y-auto mt-1">
           {filtered.map(opt => (
             <div
-              key={opt}
-              className="p-2 hover:bg-blue-100 cursor-pointer"
+              key={opt.major_name}
+              className="p-2 hover:bg-blue-100 cursor-pointer text-black"
               onClick={() => {
-                setMajor(opt);
+                setMajor(opt.full_name);
+                setMajorName && setMajorName(opt.major_name);
                 setShowDropdown(false);
               }}
             >
-              {opt}
+              {opt.full_name}
             </div>
           ))}
         </div>
@@ -228,26 +260,23 @@ const InfoDetail = ({
   handleNextClick = () => {},
   major = '',
   setMajor = () => {},
+  setMajorName = () => {},
   wantsDbMajor = null,
   setWantsDbMajor = () => {},
   doubleMajor = '',
   setDoubleMajor = () => {},
-  wantsSummerClasses = null,
-  setWantsSummerClasses = () => {},
+  setDoubleMajorName = () => {},
   maxWorkload = -1,
   setMaxWorkload = () => {},
   school = '',
   validate = () => {}
 }) => {
   const [dbMajorSelect, setDbMajorSelect] = useState(wantsDbMajor);
+  const [secondSchool, setSecondSchool] = useState('');
 
   const showDbMajor = (visible) => {
     setWantsDbMajor(visible == 'Yep');
     setDbMajorSelect(visible == 'Yep');
-  };
-
-  const setSummerClassesOn = (visible) => {
-    setWantsSummerClasses(visible == 'Yep');
   };
 
   return (
@@ -272,48 +301,35 @@ const InfoDetail = ({
       <div className="flex flex-row justify-center items-center">
         <label className="text-xl mr-5">Major:</label>
         <div className="flex-1">
-          <MajorAutocomplete school={school} major={major} setMajor={setMajor} />
+          <MajorAutocomplete school={school} major={major} setMajor={setMajor} setMajorName={setMajorName} />
         </div>
-      </div>
-      <div className="flex flex-row justify-center items-center">
-        <label className="text-xl mr-5">Summer classes?</label>
-        <Dropdown
-          options={['Yep', 'No, thanks']}
-          onSelect={setSummerClassesOn}
-          defaultOption={
-            wantsSummerClasses != null
-              ? wantsSummerClasses
-                ? 'Yep'
-                : 'No, thanks'
-              : undefined
-          }
-        />
       </div>
       <div className="flex flex-row justify-center items-center">
         <label className="text-xl mr-5">Double major?</label>
         <Dropdown
           options={['Yep', 'No, thanks']}
           onSelect={showDbMajor}
-          defaultOption={
-            wantsDbMajor != null
-              ? wantsDbMajor
-                ? 'Yep'
-                : 'No, thanks'
-              : undefined
-          }
+          defaultOption={wantsDbMajor != null ? (wantsDbMajor ? 'Yep' : 'No, thanks') : undefined}
         />
       </div>
-      <div
-        className="flex flex-row justify-center items-center"
-        hidden={!dbMajorSelect}
-      >
-        <label className="text-xl mr-5">Which one?</label>
-        <Dropdown
-          options={[]}
-          onSelect={setDoubleMajor}
-          defaultOption={doubleMajor}
-        />
-      </div>
+      {dbMajorSelect && (
+        <>
+          <div className="flex flex-row justify-center items-center">
+            <label className="text-xl mr-5">Second School:</label>
+            <Dropdown
+              options={['Arts & Architecture', 'The College', 'Education & Information Studies', 'Engineering', 'Music', 'Nursing', 'Public Affairs', 'Theater, Film & Television']}
+              onSelect={setSecondSchool}
+              defaultOption={secondSchool}
+            />
+          </div>
+          <div className="flex flex-row justify-center items-center">
+            <label className="text-xl mr-5">Second Major:</label>
+            <div className="flex-1">
+              <MajorAutocomplete school={secondSchool} major={doubleMajor} setMajor={setDoubleMajor} setMajorName={setDoubleMajorName} />
+            </div>
+          </div>
+        </>
+      )}
     </FormModal>
   );
 };
@@ -762,10 +778,6 @@ const SummaryView = ({
             <></>
           )}
           <span>
-            <strong>Summer Classes?</strong>{' '}
-            {data.wantsSummerClasses ? 'Yes' : 'No'}
-          </span>
-          <span>
             <strong>Max workload:</strong> {data.maxWorkload}
           </span>
         </motion.div>
@@ -800,10 +812,42 @@ const gradeOptions = [
   'A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'D-', 'F'
 ];
 
-const TranscriptStep = ({ transcript, setTranscript, handleNextClick, handleBackClick }) => {
-  // Use the same course list as in ClassSelect
-  const allCourses = Object.values(classes).flat();
+const TranscriptStep = ({ transcript, setTranscript, handleNextClick, handleBackClick, majorName, doubleMajorName }) => {
   const [selectedCourses, setSelectedCourses] = useState(Object.keys(transcript));
+  const [availableCourses, setAvailableCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedSubject, setSelectedSubject] = useState('All');
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        setLoading(true);
+        const majors = [majorName].filter(Boolean);
+        if (doubleMajorName) {
+          majors.push(doubleMajorName);
+        }
+        const response = await fetch('http://localhost:3000/courses/by-majors', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ majors }),
+        });
+        if (!response.ok) {
+          throw new Error('Failed to fetch courses');
+        }
+        const courses = await response.json();
+        setAvailableCourses(courses);
+      } catch (error) {
+        console.error('Error fetching courses:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (majorName) {
+      fetchCourses();
+    }
+  }, [majorName, doubleMajorName]);
 
   const toggleCourse = (course) => {
     let newSelected;
@@ -823,14 +867,42 @@ const TranscriptStep = ({ transcript, setTranscript, handleNextClick, handleBack
     setTranscript({ ...transcript, [course]: grade });
   };
 
+  const subjects = ['All', ...new Set(availableCourses.map(course => course.split(' ')[0]))];
+
+  const filteredCourses = selectedSubject === 'All'
+    ? availableCourses
+    : availableCourses.filter(course => course.startsWith(selectedSubject));
+
+  if (loading) {
+    return (
+      <FormModal handleClick={handleNextClick} handleBackClick={handleBackClick}>
+        <div className="p-4 text-center">
+          <p>Loading courses...</p>
+        </div>
+      </FormModal>
+    );
+  }
+
   return (
     <FormModal handleClick={handleNextClick} handleBackClick={handleBackClick}>
       <div className="p-4">
         <div className="mb-4">
           <strong>Select completed courses and assign a grade:</strong>
         </div>
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          {allCourses.map((course, idx) => {
+        <div className="mb-4">
+          <label className="text-xl mr-5">Filter by subject:</label>
+          <select
+            value={selectedSubject}
+            onChange={e => setSelectedSubject(e.target.value)}
+            className="border rounded p-1"
+          >
+            {subjects.map(subject => (
+              <option key={subject} value={subject}>{subject}</option>
+            ))}
+          </select>
+        </div>
+        <div className="grid grid-cols-3 gap-2 mb-4 max-h-60 overflow-y-auto">
+          {filteredCourses.map((course, idx) => {
             const isSelected = selectedCourses.includes(course);
             return (
               <div
@@ -875,9 +947,10 @@ export const Form = () => {
   const [gradQuarter, setGradQuarter] = useState('');
   const [gradYear, setGradYear] = useState(null);
   const [major, setMajor] = useState('');
+  const [majorName, setMajorName] = useState('');
   const [wantsDbMajor, setWantsDbMajor] = useState(null);
   const [doubleMajor, setDoubleMajor] = useState('');
-  const [wantsSummerClasses, setWantsSummerClasses] = useState(null);
+  const [doubleMajorName, setDoubleMajorName] = useState('');
   const [maxWorkload, setMaxWorkload] = useState(-1);
   const [earliestClassTime, setEarliestClassTime] = useState(null);
   const [latestClassTime, setLatestClassTime] = useState(null);
@@ -910,9 +983,9 @@ export const Form = () => {
   };
 
   const infoDetailValidate = () => {
-    return majors.includes(major) &&
-      (!wantsDbMajor || majors.includes(doubleMajor)) &&
-        maxWorkload >= 12;
+    return major.length > 0 && // Check if major is not empty
+      (!wantsDbMajor || (wantsDbMajor && doubleMajor.length > 0)) && // If double major is selected, check if second major is not empty
+      maxWorkload >= 12; // Check if max workload is at least 12 units
   };
 
   const scheduleValidate = () => {
@@ -959,12 +1032,12 @@ export const Form = () => {
           setGradYear={setGradYear}
           major={major}
           setMajor={setMajor}
+          setMajorName={setMajorName}
           wantsDbMajor={wantsDbMajor}
           setWantsDbMajor={setWantsDbMajor}
           doubleMajor={doubleMajor}
           setDoubleMajor={setDoubleMajor}
-          wantsSummerClasses={wantsSummerClasses}
-          setWantsSummerClasses={setWantsSummerClasses}
+          setDoubleMajorName={setDoubleMajorName}
           maxWorkload={maxWorkload}
           setMaxWorkload={setMaxWorkload}
           school={school}
@@ -1026,6 +1099,8 @@ export const Form = () => {
           setTranscript={setTranscript}
           handleNextClick={handleNextClick}
           handleBackClick={handleBackClick}
+          majorName={majorName}
+          doubleMajorName={wantsDbMajor ? doubleMajorName : null}
         />
       ) : (
         <></>
@@ -1042,7 +1117,6 @@ export const Form = () => {
             major: major,
             doubleMajor: doubleMajor,
             wantsDbMajor: wantsDbMajor,
-            wantsSummerClasses: wantsSummerClasses,
             maxWorkload: maxWorkload,
             prefNoDays: prefNoDays,
             earliestClassTime: earliestClassTime,
