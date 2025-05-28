@@ -1,6 +1,7 @@
 import express from 'express';
 import userRoutes from './routes/course_routes.js';
 import cors from 'cors';
+import scheduleRoutes from './routes/schedule_routes.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,7 +16,9 @@ app.use((req, res, next) => {
 });
 
 // Routes
-app.use('/', userRoutes);
+app.use('/courses', userRoutes);
+app.use('/schedule', scheduleRoutes);
+
 
 // Start Server
 app.listen(PORT, () => {

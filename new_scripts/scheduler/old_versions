@@ -1,0 +1,447 @@
+# import os
+# import re
+# import time
+# from datetime import date, datetime
+# from dotenv import load_dotenv
+# from supabase import create_client, Client
+# from ortools.sat.python import cp_model
+
+# # ───── CONFIGURATION ─────
+# load_dotenv()
+# SUPABASE_URL = os.getenv("SUPABASE_URL")
+# SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
+
+# # the core list of courses the student *must* complete
+# COURSES_TO_SCHEDULE = ["COM SCI|32", "COM SCI|111"]
+# MAX_COURSES_PER_TERM = 3
+
+# # Preferences only apply in “detailed” terms
+# PREF_EARLIEST    = datetime.strptime("09:00", "%H:%M").time()
+# PREF_LATEST      = datetime.strptime("12:00", "%H:%M").time()
+# PREF_NO_DAYS     = set(["F"])            # e.g. avoid Fridays
+# PREF_BUILDINGS   = set(["MS","SCI"])
+# PREF_INSTRUCTORS = set()                 # e.g. {"Smith","Jones"}
+
+# # ───── HELPERS ─────
+# def to_dnf(node):
+#     """
+#         Input: node is either
+#         • {'and': [child1, child2, …]}
+#         • {'or':  [child1, child2, …]}
+#         • a leaf dict with no 'and' or 'or'.
+#         Returns: List of clauses, each clause is a list of leaf-dicts.
+#     """
+#     if 'and' in node:
+#         # DNF(and(A,B,C)) = cartesian product of DNF(A), DNF(B), DNF(C)
+#         lists = [to_dnf(child) for child in node['and']]
+#         prods = lists[0]
+#         for rest in lists[1:]:
+#             prods = [c1 + c2 for c1 in prods for c2 in rest]
+#         return prods
+
+#     if 'or' in node:
+#         # DNF(or(X,Y,Z)) = union of DNF(X), DNF(Y), DNF(Z)
+#         groups = []
+#         for child in node['or']:
+#             groups.extend(to_dnf(child))
+#         return groups
+
+#     # leaf node
+#     return [[node]]
+
+# def safe_execute(req, retries=3, backoff=0.2):
+#     """Retry wrapper for Supabase calls."""
+#     for i in range(retries):
+#         try:
+#             return req.execute()
+#         except Exception:
+#             if i == retries-1:
+#                 raise
+#             time.sleep(backoff)
+
+# def meetings_overlap(m1, m2):
+#     """True if two meeting‐time dicts share a day *and* overlap in clock time."""
+#     if not set(m1['days_of_week']).intersection(m2['days_of_week']):
+#         return False
+#     return not (m1['end_time'] <= m2['start_time'] or m2['end_time'] <= m1['start_time'])
+
+# GRADE_ORDER = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","F"]
+# def meets_min_grade(obtained, required):
+#     """Return True if `obtained` ≥ `required` in our simple grade ordering."""
+#     try:
+#         return GRADE_ORDER.index(obtained) <= GRADE_ORDER.index(required)
+#     except ValueError:
+#         return False
+
+# def create_term_sequence_2(start_quarter: str, start_year: int, grad_quarter: str, grad_year: int):
+#     """
+#     Build a dictionary of term labels from start_quarter/start_year to grad_quarter/grad_year (inclusive).
+#     Keys are term labels like 'Fall 2023', values are empty lists.
+#     """
+#     scheduler = {}
+#     seasons = ["Fall", "Winter", "Spring"]
+    
+#     qtr = seasons.index(start_quarter)
+#     grad_qtr = seasons.index(grad_quarter)
+#     yr = start_year
+
+#     while True:
+#         term_label = f"{seasons[qtr]} {yr}"
+#         scheduler[term_label] = []
+
+#         if qtr == grad_qtr and yr == grad_year:
+#             break  # Reached graduation term
+        
+#         if qtr == 0:  # Rolled from Spring to Fall
+#             yr += 1
+
+#         qtr = (qtr + 1) % 3
+
+#     return scheduler
+
+
+# def season_offered(course_key, season, sections_by_course, term_id2season):
+#     """
+#     Return True if any section of `course_key` is offered in a term
+#     whose season name matches `season`.
+#     """
+#     for s in sections_by_course.get(course_key, []):
+#         if term_id2season[s['term_id']] == season:
+#             return True
+#     return False
+
+# # ───── MAIN SCHEDULER ─────
+# def build_schedule(start_year, start_q, grad_year, grad_q):
+#     # 1) Build the term labels…
+#     terms = create_term_sequence_2(start_q, start_year, grad_q, grad_year)
+#     num_terms = len(terms)
+
+#     # 2) Pull your Supabase `terms` table → we only have data for 3 of them
+#     supa = create_client(SUPABASE_URL, SUPABASE_KEY)
+#     term_rows = safe_execute(
+#         supa.table("terms").select("term_name,term_code,id")
+#     ).data
+
+#     # map "Winter 2025"→id, etc.
+#     term_map = {
+#         f"{r['term_name']}": r['id']
+#         for r in term_rows
+#     }
+
+#     # idx2db[i] = the DB term_id for terms[i], or None if missing
+#     idx2db = [term_map.get(lbl) for lbl in terms]
+#     print("idx2db", idx2db)
+
+#     # reverse map only for the detailed three
+#     db2idx = {db:i for i,db in enumerate(idx2db) if db is not None}
+#     # also build term_id → season_name for season_offered()
+#     term_id2season = {r['id']: r['term_name'] for r in term_rows}
+
+#     # 3) Fetch subject mappings
+#     subs = safe_execute(
+#         supa.table("subjects").select("id,code,name")
+#     ).data
+
+#     # A&O SCI : 1
+#     sub2id    = {s['code']:s['id'] for s in subs}
+#     # 1 : A&O SCI
+#     id2sub    = {s['id']:s['code'] for s in subs}
+#     # Atmospheric and Oceanic Sciences : A&O SCI
+#     name2sub  = {
+#         re.sub(r'\s*\(.*\)$','',s['name']).strip().upper(): s['code']
+#         for s in subs
+#     }
+
+#     # 4) BFS‐expand prerequisites so that `required` contains every requirement (choose most optimal path with least courses necessary)
+#     # — uses helper to turn arbitrary {'and':…}/{‘or’:…} JSON into DNF: a list of AND-clauses
+
+#     required = set(COURSES_TO_SCHEDULE)
+#     transcript = {}   # e.g. {"COM SCI|32":"B-", ...}
+
+#     def fetch_courses(keys):
+#         """Given ["DEPT|NUM", ...] return list of Supabase rows with course_requisites."""
+#         pairs = [k.split("|", 1) for k in keys]
+#         ids, nums = zip(*[(sub2id[d], n) for d,n in pairs])
+#         return safe_execute(
+#             supa.table("courses")
+#                 .select("id,subject_id,catalog_number,course_requisites")
+#                 .in_("subject_id", list(ids))
+#                 .in_("catalog_number", list(nums))
+#         ).data
+
+#     prereq_logic = {}  # vkey -> chosen AND-clause: [(ukey, relation, min_grade), ...]
+#     queue = list(required)
+
+#     while queue:
+#         vkey = queue.pop(0)
+#         # fetch this course’s JSONB prereqs
+#         rows = fetch_courses([vkey])
+#         if not rows:
+#             # no record in DB: skip
+#             continue
+
+#         raw = rows[0].get("course_requisites") or {}
+
+#         # turn into OR-of-ANDs: a list of lists of leaf dicts
+#         clauses = to_dnf(raw)
+
+#         best_clause = None
+#         best_missing = None
+#         min_missing = float("inf")
+
+#         # scan every AND-clause and count how many of its leaves are unmet
+#         for clause in clauses:
+#             parsed = []
+#             missing = []
+#             for leaf in clause:
+#                 # parse "Physics 1A)" → "PHYSICS|1A"
+#                 if "course" not in leaf:
+#                     continue
+#                 txt = leaf["course"].strip().rstrip(")")
+#                 parts = txt.rsplit(" ", 1)
+#                 if len(parts) != 2:
+#                     continue
+#                 dept, num = parts
+#                 code = name2sub.get(dept.upper())
+#                 if not code:
+#                     continue
+#                 ukey = f"{code}|{num.upper()}"
+#                 parsed.append((ukey, leaf["relation"], leaf.get("min_grade", "D-")))
+
+#                 # if student hasn’t met min_grade, it’s “missing”
+#                 if not meets_min_grade(transcript.get(ukey, "F"), leaf.get("min_grade", "F")):
+#                     missing.append(ukey)
+
+#             # if none missing, this clause is already satisfied → pick it and break
+#             if not missing:
+#                 best_clause = parsed
+#                 best_missing = []
+#                 min_missing = 0
+#                 break
+
+#             # otherwise keep the clause with the fewest missing prereqs
+#             if len(missing) < min_missing:
+#                 best_clause = parsed
+#                 best_missing = missing
+#                 min_missing = len(missing)
+
+#         # record the chosen AND-clause in your logic table
+#         prereq_logic[vkey] = best_clause or []
+
+#         # enqueue only the missing courses from that best clause
+#         for ukey in (best_missing or []):
+#             if ukey not in required:
+#                 required.add(ukey)
+#                 queue.append(ukey)
+
+#     print("logic", prereq_logic)
+#     print("required list", required)
+
+#     # 5) Re‐fetch all required course records now that `required` has grown
+#     all_courses = fetch_courses(list(required))
+#     cid2key = {
+#             c['id']: f"{id2sub[c['subject_id']]}|{c['catalog_number']}"
+#             for c in all_courses
+#         }
+
+#     # 6) Pull *only* the sections for those courses that actually exist in your DB
+#     course_ids = [c['id'] for c in all_courses]
+#     secs = safe_execute(
+#         supa.table("sections")
+#             .select("id,course_id,term_id,section_code,is_primary,activity,"
+#                     "enrollment_cap,enrollment_total,waitlist_cap,waitlist_total")
+#             .in_("course_id", course_ids)
+#     ).data
+
+#     # 7) Pull meeting_times + instructors
+#     mt = safe_execute(
+#         supa.table("meeting_times")
+#             .select("section_id,days_of_week,start_time,end_time,building,room")
+#             .in_("section_id", [s['id'] for s in secs])
+#     ).data
+#     si = safe_execute(
+#         supa.table("section_instructors")
+#             .select("section_id,instructor_id")
+#             .in_("section_id", [s['id'] for s in secs])
+#     ).data
+
+#     # build maps for times & instr using section id as key
+#     mt_by_sec = {}
+#     for m in mt:
+#         m['start_time'] = datetime.strptime(m['start_time'],"%H:%M:%S").time()
+#         m['end_time']   = datetime.strptime(m['end_time']  ,"%H:%M:%S").time()
+#         mt_by_sec.setdefault(m['section_id'], []).append(m)
+
+#     instr_ids = list({r['instructor_id'] for r in si})
+#     instr_rows= safe_execute(
+#         supa.table("instructors")
+#             .select("id,name")
+#             .in_("id", instr_ids)
+#     ).data
+
+
+#     instr_map = {r['id']:r['name'] for r in instr_rows}
+
+#     si_by_sec = {} # section id -> instructor name
+#     for r in si:
+#         si_by_sec.setdefault(r['section_id'],[]).append(instr_map[r['instructor_id']])
+
+#     # 8) Group into sections_by_course[ "COM SCI|32" ] = [ {...section data...}, … ]
+#     sections_by_course = {}
+#     for s in secs:
+#         key = cid2key[s['course_id']]
+#         # drop *completely* full sections right away
+#         if (s['enrollment_total'] >= s['enrollment_cap']
+#          and s['waitlist_total']  >= s['waitlist_cap']):
+#             continue
+#         s['times']       = mt_by_sec.get(s['id'],[])
+#         s['instructors'] = si_by_sec.get(s['id'],[])
+#         sections_by_course.setdefault(key, []).append(s)
+#     print("sections by course", sections_by_course)
+
+#     # 9) Identify which term‐indices have real DB data
+#     detailed_idxs = [idx for idx, dbid in enumerate(idx2db) if dbid is not None]
+#     print("Detailed idxs", detailed_idxs)
+
+#     # 10) Build & solve CP-SAT model over all terms
+#     model = cp_model.CpModel()
+#     x = {}           # BoolVar (course_key, section_id)
+#     term_var = {}    # IntVar term assignment per course
+
+#     # A) Create BoolVars for every section
+#     for ck, sl in sections_by_course.items():
+#         for s in sl:
+#             x[(ck, s['id'])] = model.NewBoolVar(f"x_{ck}_{s['id']}")
+#         # exactly one primary lecture if present, else exactly one overall
+#         prims = [s for s in sl if s['is_primary']]
+#         if prims:
+#             model.Add(sum(x[(ck,p['id'])] for p in prims) == 1)
+#             # tie any matching discussion to that lecture
+#             for p in prims:
+#                 discs = [d for d in sl
+#                          if not d['is_primary']
+#                          and d['section_code'].startswith(p['section_code'])]
+#                 if discs:
+#                     # sum(discussions) == lecture
+#                     model.Add(sum(x[(ck,d['id'])] for d in discs)
+#                               == x[(ck,p['id'])])
+#                     for d in discs:
+#                         model.Add(x[(ck,d['id'])] <= x[(ck,p['id'])])
+#         else:
+#             model.Add(sum(x[(ck,s['id'])] for s in sl) == 1)
+
+#     # B) Tie each course to a term‐index via its lecture choice
+#     for c in required:
+#         prims = [s for s in sections_by_course.get(c,[]) if s['is_primary']]
+#         lo = min(s['term_id'] for s in prims)
+#         hi = max(s['term_id'] for s in prims)
+#         tv = model.NewIntVar(lo, hi, f"term_{c}")
+#         term_var[c] = tv
+#         # term_var[c] == sum(term_id * x_lecture)
+#         model.Add(tv == sum(s['term_id'] * x[(c, s['id'])] for s in prims))
+#         # force any discussion into that same term
+#         for s in sections_by_course.get(c,[]):
+#             if not s['is_primary']:
+#                 model.Add(tv == s['term_id']).OnlyEnforceIf(x[(c, s['id'])])
+
+#     # C) Enforce chosen AND‐clause for each prereq
+#     for vkey, clause in prereq_logic.items():
+#         if vkey not in term_var:
+#             continue
+#         for ukey, rel, _ in clause:
+#             if ukey not in term_var:
+#                 continue
+#             if rel == "prerequisite":
+#                 model.Add(term_var[ukey] < term_var[vkey])
+#             else:  # corequisite
+#                 model.Add(term_var[ukey] == term_var[vkey])
+
+#     # D) No meeting‐time conflicts across different courses
+#     for i, c1 in enumerate(COURSES_TO_SCHEDULE):
+#         for c2 in COURSES_TO_SCHEDULE[i+1:]:
+#             for s1 in sections_by_course.get(c1,[]):
+#                 for s2 in sections_by_course.get(c2,[]):
+#                     if any(meetings_overlap(m1,m2)
+#                            for m1 in s1['times'] for m2 in s2['times']):
+#                         model.Add(x[(c1,s1['id'])] + x[(c2,s2['id'])] <= 1)
+
+#     # E) Max‐load per term (by index, via db2idx)
+#     for t in range(num_terms):
+#         model.Add(
+#             sum(
+#                 x[(c,s['id'])]
+#                 for c in required
+#                 for s in sections_by_course.get(c,[])
+#                 if db2idx.get(s['term_id']) == t
+#             ) <= MAX_COURSES_PER_TERM
+#         )
+
+#     # F) Soft penalties *only* on detailed terms
+#     penalties = []
+#     for idx in detailed_idxs:
+#         for ck, sl in sections_by_course.items():
+#             for s in sl:
+#                 if db2idx.get(s['term_id']) != idx:
+#                     continue
+#                 score = 0
+#                 for m in s['times']:
+#                     if m['start_time'] < PREF_EARLIEST or m['end_time'] > PREF_LATEST:
+#                         score += 1
+#                     if set(m['days_of_week']).intersection(PREF_NO_DAYS):
+#                         score += 1
+#                     if m['building'] not in PREF_BUILDINGS:
+#                         score += 1
+#                 if PREF_INSTRUCTORS and not set(s['instructors']).intersection(PREF_INSTRUCTORS):
+#                     score += 1
+#                 if score:
+#                     penalties.append(score * x[(ck, s['id'])])
+#     model.Minimize(sum(penalties))
+
+#     # 11) Solve
+#     solver = cp_model.CpSolver()
+#     solver.parameters.max_time_in_seconds = 30
+#     solver.parameters.log_search_progress = True
+#     solver.parameters.num_search_workers = 8
+#     status = solver.Solve(model)
+
+#     # 12) Assemble final schedule dict
+#     schedule = {lbl: [] for lbl in terms}
+#     if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+#         for c in COURSES_TO_SCHEDULE:
+#             for s in sections_by_course.get(c, []):
+#                 if solver.Value(x[(c,s['id'])]):
+#                     t_idx = db2idx[s['term_id']]
+#                     term_lbl = terms[t_idx]
+#                     if t_idx in detailed_idxs:
+#                         # detailed entry
+#                         schedule[term_lbl].append({
+#                             "course":      c,
+#                             "section":     s["section_code"],
+#                             "activity":    s["activity"],
+#                             "times":       s["times"],
+#                             "instructors": s["instructors"],
+#                             "warning":     s["enrollment_total"] >= s["enrollment_cap"]
+#                                             and s["waitlist_total"] >= s["waitlist_cap"]
+#                         })
+#                     else:
+#                         # season‐only entry (no sections)
+#                         if c not in schedule[term_lbl]:
+#                             schedule[term_lbl].append(c)
+#     else:
+#         print("❌ No feasible schedule found.")
+
+#     return schedule
+
+# # ───── HOW TO CALL ─────
+# if __name__ == "__main__":
+#     sched = build_schedule(
+#         start_year=2024, start_q="Fall",
+#         grad_year=2026, grad_q="Spring"
+#     )
+#     for term, items in sched.items():
+#         print(f"--- {term} ---")
+#         for it in items:
+#             print(" ", it)
+
+
+# get_courses_debug.py
