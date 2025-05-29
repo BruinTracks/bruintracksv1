@@ -63,9 +63,55 @@ You are helping build a structured list of courses required for a major. Your ta
 
 export const getCoursesToSchedule = async (req, res) => {
   try {
-    const { jsonData, transcript } = req.body;
-    console.log("Received jsonData:", JSON.stringify(jsonData, null, 2));
-    console.log("Received transcript:", JSON.stringify(transcript, null, 2));
+    // Log form data first
+    console.log("\n📝 FORM INPUT DATA:");
+    console.log("Selected Majors:", req.body.selectedMajors);
+    console.log("Graduation Year:", req.body.graduationYear);
+    console.log("Graduation Quarter:", req.body.graduationQuarter);
+    console.log("Transcript:", req.body.transcript);
+    console.log("Preferences:", req.body.preferences);
+    console.log("\nComplete Form Data:", req.body);
+
+    // Log the complete request information
+    console.log("\n🔍 REQUEST DETAILS:");
+    console.log("Headers:", req.headers);
+    console.log("Body:", req.body);
+    console.log("Query:", req.query);
+    console.log("Params:", req.params);
+    console.log("\nForm Data Fields:", Object.keys(req.body));
+    console.log(
+      "Form Data Values:",
+      Object.entries(req.body).map(([key, value]) => `${key}: ${typeof value}`)
+    );
+
+    const { jsonData, transcript, grad_year, grad_quarter, preferences } =
+      req.body;
+    console.log("Destructured values:", {
+      grad_year,
+      grad_quarter,
+      hasJsonData: !!jsonData,
+      hasTranscript: !!transcript,
+      hasPreferences: !!preferences,
+    });
+
+    // Format transcript into the expected format
+    const formattedTranscript = {};
+    if (Array.isArray(transcript)) {
+      transcript.forEach((course) => {
+        const [subject, number] = course.split(/\s+/);
+        if (subject && number) {
+          formattedTranscript[`${subject}|${number}`] = null;
+        }
+      });
+    } else if (typeof transcript === "object") {
+      Object.entries(transcript).forEach(([course, grade]) => {
+        const [subject, number] = course.split(/\s+/);
+        if (subject && number) {
+          formattedTranscript[`${subject}|${number}`] = grade;
+        }
+      });
+    }
+    console.log("Formatted transcript:", formattedTranscript);
 
     // Handle nested array if present
     const requirements = Array.isArray(jsonData[0]) ? jsonData[0] : jsonData;
@@ -76,6 +122,7 @@ export const getCoursesToSchedule = async (req, res) => {
     }
 
     const allCourses = new Set();
+    const gptPromises = [];
 
     for (const section of requirements) {
       console.log("\nProcessing section:", section.title);
@@ -96,66 +143,95 @@ export const getCoursesToSchedule = async (req, res) => {
         }
 
         const sectionJson = JSON.stringify(section, null, 2);
-        const transcriptJson = JSON.stringify(transcript, null, 2);
+        const transcriptJson = JSON.stringify(formattedTranscript, null, 2);
         const userPrompt = `Here is the next section of the major requirements:\n\`\`\`json\n${sectionJson}\n\`\`\`\n\nAnd here are the courses the student has already completed:\n\`\`\`json\n${transcriptJson}\n\`\`\`\n\nPlease analyze the course descriptions and titles, and select the most appropriate courses based on the student's completed courses and the logical progression of the major. Pay special attention to the number of courses required for each section, especially for electives.`;
         console.log("Sending prompt to GPT:", userPrompt);
 
-        try {
-          const completion = await openai.chat.completions.create({
+        const gptPromise = openai.chat.completions
+          .create({
             model: "gpt-4o",
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: userPrompt },
             ],
             temperature: 0,
-          });
+          })
+          .then((completion) => {
+            console.log("GPT Response:", JSON.stringify(completion, null, 2));
 
-          console.log("GPT Response:", JSON.stringify(completion, null, 2));
-
-          const content = completion.choices[0].message.content;
-          if (!content) {
-            console.error("No content returned from GPT");
-            continue;
-          }
-
-          try {
-            // Remove markdown code block formatting if present
-            const jsonContent = content.replace(/```json\n|\n```/g, "").trim();
-            console.log("Cleaned JSON content:", jsonContent);
-
-            const parsed = JSON.parse(jsonContent);
-            console.log("Parsed courses from GPT:", parsed);
-
-            if (!parsed.courses || !Array.isArray(parsed.courses)) {
-              console.error("Invalid courses format in GPT response:", parsed);
-              continue;
+            const content = completion.choices[0].message.content;
+            if (!content) {
+              console.error("No content returned from GPT");
+              return;
             }
 
-            const courses = parsed.courses;
-            console.log("Adding courses:", courses);
+            try {
+              // Remove markdown code block formatting if present
+              const jsonContent = content
+                .replace(/```json\n|\n```/g, "")
+                .trim();
+              console.log("Cleaned JSON content:", jsonContent);
 
-            courses.forEach((course) => {
-              if (typeof course === "string" && course.trim()) {
-                allCourses.add(course.trim());
+              const parsed = JSON.parse(jsonContent);
+              console.log("Parsed courses from GPT:", parsed);
+
+              if (!parsed.courses || !Array.isArray(parsed.courses)) {
+                console.error(
+                  "Invalid courses format in GPT response:",
+                  parsed
+                );
+                return;
               }
-            });
 
-            console.log(
-              `Processed section successfully. Current courses:`,
-              Array.from(allCourses)
-            );
-          } catch (parseError) {
-            console.error("Error parsing GPT response:", parseError);
-            console.error("Raw response:", content);
-          }
-        } catch (err) {
-          console.error(`Error processing section:`, err.message);
-        }
+              const courses = parsed.courses;
+              console.log("Adding courses:", courses);
+
+              courses.forEach((course) => {
+                if (typeof course === "string" && course.trim()) {
+                  // Handle multi-word subjects like "COM SCI" and "EC ENGR"
+                  const parts = course.trim().split(/\s+/);
+                  if (parts.length >= 2) {
+                    const number = parts.pop(); // Get the last part as the number
+                    const subject = parts.join(" "); // Join the rest as the subject
+                    if (subject && number) {
+                      const formattedCourse = `${subject}|${number}`;
+                      // Only add if not in transcript
+                      if (!formattedTranscript[formattedCourse]) {
+                        allCourses.add(formattedCourse);
+                      }
+                    }
+                  }
+                }
+              });
+
+              console.log(
+                `Processed section successfully. Current courses:`,
+                Array.from(allCourses)
+              );
+            } catch (parseError) {
+              console.error("Error parsing GPT response:", parseError);
+              console.error("Raw response:", content);
+            }
+          })
+          .catch((err) => {
+            console.error(`Error processing section:`, err.message);
+          });
+
+        gptPromises.push(gptPromise);
       }
     }
 
+    // Wait for all GPT responses to complete
+    await Promise.all(gptPromises);
+
     const finalList = {
-      courses: Array.from(allCourses),
+      start_year: 2024,
+      start_quarter: "Spring",
+      end_year: parseInt(grad_year),
+      end_quarter: grad_quarter || "Spring",
+      courses_to_schedule: Array.from(allCourses),
+      transcript: formattedTranscript,
+      preferences,
     };
 
     console.log(
@@ -163,13 +239,118 @@ export const getCoursesToSchedule = async (req, res) => {
       JSON.stringify(finalList, null, 2)
     );
 
-    if (finalList.courses.length === 0) {
+    if (finalList.courses_to_schedule.length === 0) {
       console.error(
         "No courses were selected. This might indicate an issue with the GPT response or data processing."
       );
     }
 
-    res.json(finalList);
+    // Get current date for start year/quarter
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    // Determine current quarter based on month
+    const getCurrentQuarter = (month) => {
+      if (month >= 0 && month <= 2) return "Winter";
+      if (month >= 3 && month <= 5) return "Spring";
+      if (month >= 6 && month <= 8) return "Summer";
+      return "Fall";
+    };
+
+    // Validate grad year
+    if (!grad_year) {
+      console.error("Graduation year is required");
+      return res.status(400).json({ error: "Graduation year is required" });
+    }
+
+    // Construct scheduling request body
+    const schedulingRequestBody = {
+      start_year: currentYear,
+      start_quarter: getCurrentQuarter(currentMonth),
+      end_year: parseInt(grad_year),
+      end_quarter: grad_quarter || "Spring",
+      courses_to_schedule: Array.from(allCourses),
+      transcript: formattedTranscript,
+      preferences: {
+        allow_warnings: preferences?.allow_warnings ?? false,
+        allow_primary_conflicts: preferences?.allow_primary_conflicts ?? false,
+        allow_secondary_conflicts:
+          preferences?.allow_secondary_conflicts ?? false,
+        pref_priority: preferences?.pref_priority ?? [
+          "time",
+          "building",
+          "days",
+          "instructor",
+        ],
+        pref_earliest: preferences?.pref_earliest ?? "09:00",
+        pref_latest: preferences?.pref_latest ?? "17:00",
+        pref_no_days: preferences?.pref_no_days ?? [],
+        pref_buildings: preferences?.pref_buildings ?? [],
+        pref_instructors: preferences?.pref_instructors ?? [],
+        max_courses_per_term: preferences?.max_courses_per_term ?? 4,
+        least_courses_per_term: preferences?.least_courses_per_term ?? 3,
+      },
+    };
+
+    console.log(
+      "\n📅 Scheduling Request Body:",
+      JSON.stringify(schedulingRequestBody, null, 2)
+    );
+
+    // Call scheduling controller
+    try {
+      // Try different localhost variations
+      const endpoints = [
+        "http://127.0.0.1:3000/api/schedule",
+        "http://localhost:3000/api/schedule",
+        "http://[::1]:3000/api/schedule",
+      ];
+
+      let schedulingResponse = null;
+      let lastError = null;
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying endpoint: ${endpoint}`);
+          schedulingResponse = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(schedulingRequestBody),
+          });
+          if (schedulingResponse.ok) break;
+        } catch (error) {
+          console.log(`Failed to connect to ${endpoint}:`, error.message);
+          lastError = error;
+        }
+      }
+
+      if (!schedulingResponse || !schedulingResponse.ok) {
+        throw (
+          lastError ||
+          new Error(
+            `Scheduling failed with status: ${schedulingResponse?.status}`
+          )
+        );
+      }
+
+      const schedulingResult = await schedulingResponse.json();
+      console.log(
+        "\n📊 Scheduling Result:",
+        JSON.stringify(schedulingResult, null, 2)
+      );
+
+      // Return both the course list and scheduling result
+      res.json({
+        ...finalList,
+        schedule: schedulingResult,
+      });
+    } catch (schedulingError) {
+      console.error("Error in scheduling:", schedulingError);
+      // Still return the course list even if scheduling fails
+      res.json(finalList);
+    }
   } catch (error) {
     console.error("Error in getCoursesToSchedule:", error);
     res.status(500).json({ error: "Internal server error" });
