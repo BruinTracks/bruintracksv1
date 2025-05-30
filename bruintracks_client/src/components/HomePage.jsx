@@ -348,151 +348,84 @@ const ScheduleSummary = ({ scheduleData }) => {
 };
 
 const WeeklyCalendar = ({ courses }) => {
-  console.log("WeeklyCalendar received courses:", courses);
-  
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   const timeSlots = [
-    '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM',
-    '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM'
+    '8:00 AM','9:00 AM','10:00 AM','11:00 AM','12:00 PM',
+    '1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM'
   ];
 
-  // Convert time to minutes for easier comparison
-  const timeToMinutes = (time) => {
-    if (!time) return 0;
-    const [timeStr, period] = time.split(' ');
-    let [hours, minutes] = timeStr.split(':').map(Number);
-    if (period === 'PM' && hours !== 12) hours += 12;
-    if (period === 'AM' && hours === 12) hours = 0;
-    return hours * 60 + minutes;
+  /* helper constants — the label gutter + width of one weekday column */
+  const dayLabelWidth = '6rem';
+  const dayWidth      = `calc((100% - ${dayLabelWidth}) / 5)`;
+
+  /* ---------- helpers ---------- */
+  const timeToMinutes = t => {
+    if (!t) return 0;
+    const [clock, period] = t.split(' ');
+    let [h, m] = clock.split(':').map(Number);
+    if (period === 'PM' && h !== 12) h += 12;
+    if (period === 'AM' && h === 12) h = 0;
+    return h * 60 + m;
   };
 
-  // Map day abbreviations to full names
-  const dayMap = {
-    'M': 'Monday',
-    'T': 'Tuesday',
-    'W': 'Wednesday',
-    'R': 'Thursday',
-    'F': 'Friday'
-  };
+  const dayMap = { M:'Monday', T:'Tuesday', W:'Wednesday', R:'Thursday', F:'Friday' };
 
-  // Get course schedule for a specific day
-  const getCoursesForDay = (day) => {
-    console.log(`Getting courses for ${day}:`, courses);
-    if (!courses || typeof courses !== 'object') {
-      console.log("No valid courses data");
-      return [];
+  const doTimesOverlap = (a, b) =>
+    timeToMinutes(a.start) < timeToMinutes(b.end) &&
+    timeToMinutes(a.end)   > timeToMinutes(b.start);
+
+  const getOverlappingCourses = (day, name, data) => {
+    const chunks = [];
+    const lecture    = data.lecture    || data;
+    const discussion = data.discussion;
+
+    if (lecture.times?.[0] &&
+        lecture.times[0].days.split('').map(d => dayMap[d]).includes(day)) {
+      chunks.push(lecture.times[0]);
     }
-
-    return Object.entries(courses).filter(([courseName, courseData]) => {
-      console.log(`Checking course ${courseName}:`, courseData);
-      const lecture = courseData.lecture || courseData;
-      const discussion = courseData.discussion;
-      
-      // Check both lecture and discussion times
-      const lectureDays = lecture.times?.[0]?.days?.split('').map(d => dayMap[d]) || [];
-      const discussionDays = discussion?.times?.[0]?.days?.split('').map(d => dayMap[d]) || [];
-      
-      console.log(`Lecture days for ${courseName}:`, lectureDays);
-      console.log(`Discussion days for ${courseName}:`, discussionDays);
-      
-      return lectureDays.includes(day) || discussionDays.includes(day);
-    });
-  };
-
-  // Calculate block height based on duration
-  const calculateBlockHeight = (startTime, endTime) => {
-    if (!startTime || !endTime) return '4rem';
-    const startMinutes = timeToMinutes(startTime);
-    const endMinutes = timeToMinutes(endTime);
-    const duration = endMinutes - startMinutes;
-    const calculatedHeight = `${duration / 30}rem`;
-    // Ensure minimum height of 4rem for content visibility
-    return `max(${calculatedHeight}, 4rem)`;
-  };
-
-  // Check if two time slots overlap
-  const doTimesOverlap = (time1, time2) => {
-    const start1 = timeToMinutes(time1.start);
-    const end1 = timeToMinutes(time1.end);
-    const start2 = timeToMinutes(time2.start);
-    const end2 = timeToMinutes(time2.end);
-    return (start1 < end2 && end1 > start2);
-  };
-
-  // Get overlapping courses for a specific day and time
-  const getOverlappingCourses = (day, courseName, courseData) => {
-    const lecture = courseData.lecture || courseData;
-    const discussion = courseData.discussion;
-    const courseTimes = [];
-    
-    if (lecture.times?.[0]) {
-      const lectureTime = lecture.times[0];
-      if (lectureTime.days?.split('').map(d => dayMap[d]).includes(day)) {
-        courseTimes.push({ type: 'lecture', time: lectureTime });
-      }
-    }
-    if (discussion?.times?.[0]) {
-      const discussionTime = discussion.times[0];
-      if (discussionTime.days?.split('').map(d => dayMap[d]).includes(day)) {
-        courseTimes.push({ type: 'discussion', time: discussionTime });
-      }
+    if (discussion?.times?.[0] &&
+        discussion.times[0].days.split('').map(d => dayMap[d]).includes(day)) {
+      chunks.push(discussion.times[0]);
     }
 
     return Object.entries(courses)
-      .filter(([otherName, otherData]) => {
-        if (otherName === courseName) return false;
-        const otherLecture = otherData.lecture || otherData;
-        const otherDiscussion = otherData.discussion;
-        
-        return courseTimes.some(({ time: courseTime }) => {
-          if (otherLecture.times?.[0]) {
-            const otherLectureTime = otherLecture.times[0];
-            if (otherLectureTime.days?.split('').map(d => dayMap[d]).includes(day)) {
-              return doTimesOverlap(courseTime, otherLectureTime);
-            }
-          }
-          if (otherDiscussion?.times?.[0]) {
-            const otherDiscussionTime = otherDiscussion.times[0];
-            if (otherDiscussionTime.days?.split('').map(d => dayMap[d]).includes(day)) {
-              return doTimesOverlap(courseTime, otherDiscussionTime);
-            }
-          }
-          return false;
-        });
+      .filter(([other]) => other !== name)
+      .filter(([_, otherData]) => {
+        const l = otherData.lecture    || otherData;
+        const d = otherData.discussion;
+        return chunks.some(c =>
+          (l.times?.[0] &&
+           l.times[0].days.split('').map(d => dayMap[d]).includes(day) &&
+           doTimesOverlap(c, l.times[0])) ||
+          (d?.times?.[0] &&
+           d.times[0].days.split('').map(d => dayMap[d]).includes(day) &&
+           doTimesOverlap(c, d.times[0]))
+        );
       })
-      .map(([name]) => name);
+      .map(([n]) => n);
   };
 
-  // Calculate block position with overlap handling
-  const calculateBlockPosition = (startTime, courseName, day) => {
-    if (!startTime) return '0';
-    const startMinutes = timeToMinutes(startTime);
-    const earliestTime = timeToMinutes('8:00 AM');
-    const minutesFromStart = startMinutes - earliestTime;
-    const basePosition = `${minutesFromStart / 30}rem`;
-
-    // Check for overlapping courses
-    const overlappingCourses = getOverlappingCourses(day, courseName, courses[courseName]);
-    if (overlappingCourses.length > 0) {
-      // Add a small offset based on the number of overlapping courses
-      const overlapIndex = overlappingCourses.indexOf(courseName);
-      return `${minutesFromStart / 30 + (overlapIndex * 0.5)}rem`;
-    }
-
-    return basePosition;
+  const blockTop = (start, overlapCount) => {
+    const minutesFromEight = timeToMinutes(start) - timeToMinutes('8:00 AM');
+    return `${minutesFromEight / 30 + overlapCount * 0.5}rem`;
   };
 
+  const blockHeight = (start, end) =>
+    `${Math.max((timeToMinutes(end) - timeToMinutes(start)) / 30, 4)}rem`;
+
+  /* ---------- render ---------- */
   return (
-    <motion.div 
+    <motion.div
       className="bg-gray-700 rounded-lg shadow-md p-6 mb-8"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
     >
       <h2 className="text-2xl font-bold text-white mb-6">Weekly Schedule</h2>
+
       <div className="overflow-x-auto">
         <div className="min-w-[800px]">
           {/* Header */}
-          <div className="grid grid-cols-6 gap-4 mb-4">
+          <div className="grid grid-cols-6 gap-y-4 gap-x-0 mb-4">
             <div className="w-24"></div>
             {days.map(day => (
               <div key={day} className="text-center">
@@ -501,108 +434,78 @@ const WeeklyCalendar = ({ courses }) => {
             ))}
           </div>
 
-          {/* Calendar Grid */}
+          {/* Grid */}
           <div className="relative">
-            {/* Time slots */}
-            {timeSlots.map((time) => (
-              <div key={time} className="grid grid-cols-6 gap-4 mb-2">
+            {/* Time rows */}
+            {timeSlots.map(time => (
+              <div key={time} className="grid grid-cols-6 gap-y-2 gap-x-0 mb-2">
                 <div className="w-24 text-right pr-4">
                   <span className="text-sm text-gray-400">{time}</span>
                 </div>
-                {days.map(day => (
-                  <div key={`${day}-${time}`} className="relative min-h-[40px] border-b border-gray-600"></div>
+                {days.map(d => (
+                  <div
+                    key={`${d}-${time}`}
+                    className="relative min-h-[40px] border-b border-gray-600"
+                  ></div>
                 ))}
               </div>
             ))}
 
-            {/* Course Blocks */}
-            {days.map(day => {
-              const dayCourses = getCoursesForDay(day);
-              
-              return dayCourses.map(([courseName, courseData]) => {
-                const lecture = courseData.lecture || courseData;
-                const discussion = courseData.discussion;
-                
-                // Handle lecture
-                if (lecture.times?.[0]) {
-                  const lectureTime = lecture.times[0];
-                  const lectureDays = lectureTime.days?.split('').map(d => dayMap[d]) || [];
-                  if (lectureDays.includes(day)) {
-                    const overlappingCourses = getOverlappingCourses(day, courseName, courseData);
-                    return (
-                      <motion.div
-                        key={`${courseName}-lecture-${day}`}
-                        className={`absolute bg-gray-800 border border-blue-500 rounded p-2 text-white text-sm shadow-lg ${
-                          overlappingCourses.length > 0 ? 'z-10' : ''
-                        }`}
-                        style={{
-                          left: `${(days.indexOf(day) + 1) * (100 / 6)}%`,
-                          top: calculateBlockPosition(lectureTime.start, courseName, day),
-                          height: calculateBlockHeight(lectureTime.start, lectureTime.end),
-                          width: `${100 / 6 - 2}%`,
-                          minHeight: '4rem', // Ensure minimum height for content
-                        }}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        whileHover={{ scale: 1.05, backgroundColor: '#1a365d' }}
-                      >
-                        <div className="flex flex-col h-full">
-                          <p className="font-semibold text-blue-400 break-words">{courseName.replace(/\|/g, ' ')}</p>
-                          <p className="text-xs text-gray-400">Lecture</p>
-                          <p className="text-xs text-gray-400 break-words">
-                            {lectureTime.building} {lectureTime.room}
-                          </p>
-                          {overlappingCourses.length > 0 && (
-                            <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                              {overlappingCourses.length}
-                            </div>
-                          )}
-                        </div>
-                      </motion.div>
-                    );
-                  }
-                }
+            {/* Course blocks */}
+            {days.flatMap(day => {
+              const dayCourses = Object.entries(courses).filter(([_, cd]) => {
+                const l = cd.lecture || cd;
+                const d = cd.discussion;
+                return (
+                  (l.times?.[0]?.days || '').split('').map(ch => dayMap[ch]).includes(day) ||
+                  (d?.times?.[0]?.days || '').split('').map(ch => dayMap[ch]).includes(day)
+                );
+              });
 
-                // Handle discussion
-                if (discussion?.times?.[0]) {
-                  const discussionTime = discussion.times[0];
-                  const discussionDays = discussionTime.days?.split('').map(d => dayMap[d]) || [];
-                  if (discussionDays.includes(day)) {
-                    const overlappingCourses = getOverlappingCourses(day, courseName, courseData);
-                    return (
+              return dayCourses.flatMap(([name, data]) => {
+                const lecture    = data.lecture || data;
+                const discussion = data.discussion;
+                const out        = [];
+
+                [['Lecture', lecture.times?.[0]], ['Discussion', discussion?.times?.[0]]]
+                  .forEach(([label, t]) => {
+                    if (!t || !(t.days || '').split('').map(ch => dayMap[ch]).includes(day)) return;
+
+                    const overlapCount = getOverlappingCourses(day, name, data).length;
+                    const dayIndex     = days.indexOf(day);
+
+                    out.push(
                       <motion.div
-                        key={`${courseName}-discussion-${day}`}
-                        className={`absolute bg-gray-800 border border-blue-400 rounded p-2 text-white text-sm shadow-lg ${
-                          overlappingCourses.length > 0 ? 'z-10' : ''
-                        }`}
+                        key={`${name}-${label}-${day}`}
+                        className="absolute bg-gray-800 border border-blue-500 rounded p-2 text-white text-sm shadow-lg"
                         style={{
-                          left: `${(days.indexOf(day) + 1) * (100 / 6)}%`,
-                          top: calculateBlockPosition(discussionTime.start, courseName, day),
-                          height: calculateBlockHeight(discussionTime.start, discussionTime.end),
-                          width: `${100 / 6 - 2}%`,
-                          minHeight: '4rem', // Ensure minimum height for content
+                          left     : `calc(${dayLabelWidth} + ${dayIndex} * ${dayWidth})`,
+                          width    : dayWidth,
+                          top      : blockTop(t.start, overlapCount),
+                          height   : blockHeight(t.start, t.end),
+                          minHeight: '4rem',
                         }}
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
                         whileHover={{ scale: 1.05, backgroundColor: '#1a365d' }}
                       >
-                        <div className="flex flex-col h-full">
-                          <p className="font-semibold text-blue-400 break-words">{courseName.replace(/\|/g, ' ')}</p>
-                          <p className="text-xs text-gray-400">Discussion</p>
-                          <p className="text-xs text-gray-400 break-words">
-                            {discussionTime.building} {discussionTime.room}
-                          </p>
-                          {overlappingCourses.length > 0 && (
-                            <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                              {overlappingCourses.length}
-                            </div>
-                          )}
-                        </div>
+                        <p className="font-semibold text-blue-400 break-words">
+                          {name.replace(/\|/g, ' ')}
+                        </p>
+                        <p className="text-xs text-gray-400">{label}</p>
+                        <p className="text-xs text-gray-400 break-words">
+                          {t.building} {t.room}
+                        </p>
+                        {!!overlapCount && (
+                          <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                            {overlapCount}
+                          </div>
+                        )}
                       </motion.div>
                     );
-                  }
-                }
-                return null;
+                  });
+
+                return out;
               });
             })}
           </div>
@@ -617,7 +520,8 @@ export const HomePage = () => {
   const [scheduleData, setScheduleData] = useState(null);
   const [unscheduledCourses, setUnscheduledCourses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [leastCoursesPerTerm, setLeastCoursesPerTerm] = useState(3); // Default value
+  const [leastCoursesPerTerm, setLeastCoursesPerTerm] = useState(3);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Clean course name by replacing "|" with a space
   const cleanCourseName = (name) => {
@@ -823,7 +727,7 @@ export const HomePage = () => {
               Sign Out
             </motion.button>
           </div>
-                  </div>
+        </div>
         
         {/* Schedule Summary */}
         <ScheduleSummary scheduleData={scheduleData} />
@@ -869,16 +773,82 @@ export const HomePage = () => {
                   whileHover={{ scale: 1.05 }}
                 >
                   <p className="text-gray-300">{cleanCourseName(course)}</p>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
         )}
 
-        {/* Chatbox */}
-        <div className="mt-8">
-          <Chatbox />
-        </div>
+        {/* Floating Chat Button */}
+        <motion.div
+          className="fixed bottom-8 right-8 z-50"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+        >
+          <motion.button
+            onClick={() => setIsChatOpen(!isChatOpen)}
+            className="bg-blue-600 text-white w-16 h-16 rounded-full shadow-xl flex items-center justify-center hover:bg-blue-700 transition-colors border-2 border-white"
+            whileHover={{ scale: 1.1, boxShadow: "0 0 20px rgba(59, 130, 246, 0.5)" }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <div className="flex flex-col items-center">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-8 w-8"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                />
+              </svg>
+              <span className="text-xs mt-1 font-medium">AI Assistant</span>
+            </div>
+          </motion.button>
+        </motion.div>
+
+        {/* Chat Interface */}
+        {isChatOpen && (
+          <motion.div
+            className="fixed bottom-28 right-8 w-[400px] h-[600px] bg-gray-800 rounded-lg shadow-2xl z-50 border border-gray-700"
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+          >
+            <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-900 rounded-t-lg">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <h3 className="text-lg font-semibold text-white">AI Planning Assistant</h3>
+              </div>
+              <button
+                onClick={() => setIsChatOpen(false)}
+                className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-gray-700 transition-colors"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div className="h-[calc(100%-4rem)] overflow-hidden">
+              <Chatbox />
+            </div>
+          </motion.div>
+        )}
       </div>
     </div>
   );
