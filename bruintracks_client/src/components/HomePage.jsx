@@ -52,6 +52,19 @@ const CourseCard = ({ course, courseData, isFirstTerm }) => {
   const lecture = courseData.lecture || courseData;
   const discussion = courseData.discussion;
 
+  // Calculate enrollment percentage
+  const getEnrollmentPercentage = (enrollment, cap) => {
+    if (!enrollment || !cap) return 0;
+    return Math.min((enrollment / cap) * 100, 100);
+  };
+
+  // Get color based on enrollment percentage
+  const getEnrollmentColor = (percentage) => {
+    if (percentage >= 90) return 'bg-red-500';
+    if (percentage >= 75) return 'bg-yellow-500';
+    return 'bg-green-500';
+  };
+
   return (
     <motion.div 
       className="bg-gray-700 rounded-lg shadow-md p-4 mb-4"
@@ -79,10 +92,37 @@ const CourseCard = ({ course, courseData, isFirstTerm }) => {
             </div>
           ))}
           {lecture.enrollment_total !== undefined && (
-            <p className="text-sm text-gray-400">
-              Enrollment: {lecture.enrollment_total}/{lecture.enrollment_cap}
-              {lecture.waitlist_total > 0 && ` (Waitlist: ${lecture.waitlist_total}/${lecture.waitlist_cap})`}
-            </p>
+            <div className="mt-2 space-y-2">
+              {/* Enrollment Bar */}
+              <div>
+                <div className="flex justify-between text-xs text-gray-400 mb-1">
+                  <span>Enrollment: {lecture.enrollment_total}/{lecture.enrollment_cap}</span>
+                  <span>{Math.round(getEnrollmentPercentage(lecture.enrollment_total, lecture.enrollment_cap))}%</span>
+                </div>
+                <div className="w-full bg-gray-600 rounded-full h-2">
+                  <div 
+                    className={`h-2 rounded-full ${getEnrollmentColor(getEnrollmentPercentage(lecture.enrollment_total, lecture.enrollment_cap))}`}
+                    style={{ width: `${getEnrollmentPercentage(lecture.enrollment_total, lecture.enrollment_cap)}%` }}
+                  />
+                </div>
+              </div>
+              
+              {/* Waitlist Bar */}
+              {lecture.waitlist_total > 0 && (
+                <div>
+                  <div className="flex justify-between text-xs text-gray-400 mb-1">
+                    <span>Waitlist: {lecture.waitlist_total}/{lecture.waitlist_cap}</span>
+                    <span>{Math.round(getEnrollmentPercentage(lecture.waitlist_total, lecture.waitlist_cap))}%</span>
+                  </div>
+                  <div className="w-full bg-gray-600 rounded-full h-2">
+                    <div 
+                      className="h-2 rounded-full bg-purple-500"
+                      style={{ width: `${getEnrollmentPercentage(lecture.waitlist_total, lecture.waitlist_cap)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -106,10 +146,37 @@ const CourseCard = ({ course, courseData, isFirstTerm }) => {
               </div>
             ))}
             {discussion.enrollment_total !== undefined && (
-              <p className="text-sm text-gray-400">
-                Enrollment: {discussion.enrollment_total}/{discussion.enrollment_cap}
-                {discussion.waitlist_total > 0 && ` (Waitlist: ${discussion.waitlist_total}/${discussion.waitlist_cap})`}
-              </p>
+              <div className="mt-2 space-y-2">
+                {/* Enrollment Bar */}
+                <div>
+                  <div className="flex justify-between text-xs text-gray-400 mb-1">
+                    <span>Enrollment: {discussion.enrollment_total}/{discussion.enrollment_cap}</span>
+                    <span>{Math.round(getEnrollmentPercentage(discussion.enrollment_total, discussion.enrollment_cap))}%</span>
+                  </div>
+                  <div className="w-full bg-gray-600 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full ${getEnrollmentColor(getEnrollmentPercentage(discussion.enrollment_total, discussion.enrollment_cap))}`}
+                      style={{ width: `${getEnrollmentPercentage(discussion.enrollment_total, discussion.enrollment_cap)}%` }}
+                    />
+                  </div>
+                </div>
+                
+                {/* Waitlist Bar */}
+                {discussion.waitlist_total > 0 && (
+                  <div>
+                    <div className="flex justify-between text-xs text-gray-400 mb-1">
+                      <span>Waitlist: {discussion.waitlist_total}/{discussion.waitlist_cap}</span>
+                      <span>{Math.round(getEnrollmentPercentage(discussion.waitlist_total, discussion.waitlist_cap))}%</span>
+                    </div>
+                    <div className="w-full bg-gray-600 rounded-full h-2">
+                      <div 
+                        className="h-2 rounded-full bg-purple-500"
+                        style={{ width: `${getEnrollmentPercentage(discussion.waitlist_total, discussion.waitlist_cap)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -756,7 +823,7 @@ export const HomePage = () => {
               Sign Out
             </motion.button>
           </div>
-        </div>
+                  </div>
         
         {/* Schedule Summary */}
         <ScheduleSummary scheduleData={scheduleData} />
@@ -802,10 +869,10 @@ export const HomePage = () => {
                   whileHover={{ scale: 1.05 }}
                 >
                   <p className="text-gray-300">{cleanCourseName(course)}</p>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
         )}
 
         {/* Chatbox */}
