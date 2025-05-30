@@ -347,73 +347,48 @@ const ScheduleSummary = ({ scheduleData }) => {
   );
 };
 
-const WeeklyCalendar = ({ courses }) => {
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+export const WeeklyCalendar = ({ courses }) => {
+  /* ───────── constants ───────── */
+  const days      = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]; // display order
   const timeSlots = [
-    '8:00 AM','9:00 AM','10:00 AM','11:00 AM','12:00 PM',
-    '1:00 PM','2:00 PM','3:00 PM','4:00 PM','5:00 PM'
+    "8:00 AM","8:30 AM","9:00 AM","9:30 AM","10:00 AM","10:30 AM","11:00 AM","11:30 AM",
+    "12:00 PM","12:30 PM","1:00 PM","1:30 PM","2:00 PM","2:30 PM","3:00 PM","3:30 PM",
+    "4:00 PM","4:30 PM","5:00 PM"
   ];
 
-  /* helper constants — the label gutter + width of one weekday column */
-  const dayLabelWidth = '6rem';
-  const dayWidth      = `calc((100% - ${dayLabelWidth}) / 5)`;
+  const DAY_LABEL_WIDTH = 96;  // px (Tailwind w‑24 ⇒ 6rem)
+  const ROW_HEIGHT      = 40;  // px (min‑h‑[40px]) – each slot is 30 min
 
-  /* ---------- helpers ---------- */
-  const timeToMinutes = t => {
+  /* ───────── helpers ───────── */
+  const timeToMinutes = (t) => {
     if (!t) return 0;
-    const [clock, period] = t.split(' ');
-    let [h, m] = clock.split(':').map(Number);
-    if (period === 'PM' && h !== 12) h += 12;
-    if (period === 'AM' && h === 12) h = 0;
+    const [clock, period] = t.split(" ");
+    let   [h, m]         = clock.split(":").map(Number);
+    if (period === "PM" && h !== 12) h += 12;
+    if (period === "AM" && h === 12) h  = 0;
     return h * 60 + m;
   };
 
-  const dayMap = { M:'Monday', T:'Tuesday', W:'Wednesday', R:'Thursday', F:'Friday' };
+  const dayMap = { M:"Monday", T:"Tuesday", W:"Wednesday", R:"Thursday", F:"Friday" };
 
-  const doTimesOverlap = (a, b) =>
-    timeToMinutes(a.start) < timeToMinutes(b.end) &&
-    timeToMinutes(a.end)   > timeToMinutes(b.start);
+  const occursOn = (timeObj, day) =>
+    (timeObj?.days || "").split("").some((d) => dayMap[d] === day);
 
-  const getOverlappingCourses = (day, name, data) => {
-    const chunks = [];
-    const lecture    = data.lecture    || data;
-    const discussion = data.discussion;
+  /**
+   * Flatten ‑> array of { name, label, start, end, building, room } for that day
+   */
+  const sessionsForDay = (day) =>
+    Object.entries(courses).flatMap(([name, data]) => {
+      const lecture    = data.lecture    || data;
+      const discussion = data.discussion || {};
+      return [
+        { label: "Lecture",    info: lecture.times?.[0]    },
+        { label: "Discussion", info: discussion.times?.[0] }
+      ].filter(({ info }) => info && occursOn(info, day))
+       .map(({ label, info }) => ({ name, label, ...info }));
+    });
 
-    if (lecture.times?.[0] &&
-        lecture.times[0].days.split('').map(d => dayMap[d]).includes(day)) {
-      chunks.push(lecture.times[0]);
-    }
-    if (discussion?.times?.[0] &&
-        discussion.times[0].days.split('').map(d => dayMap[d]).includes(day)) {
-      chunks.push(discussion.times[0]);
-    }
-
-    return Object.entries(courses)
-      .filter(([other]) => other !== name)
-      .filter(([_, otherData]) => {
-        const l = otherData.lecture    || otherData;
-        const d = otherData.discussion;
-        return chunks.some(c =>
-          (l.times?.[0] &&
-           l.times[0].days.split('').map(d => dayMap[d]).includes(day) &&
-           doTimesOverlap(c, l.times[0])) ||
-          (d?.times?.[0] &&
-           d.times[0].days.split('').map(d => dayMap[d]).includes(day) &&
-           doTimesOverlap(c, d.times[0]))
-        );
-      })
-      .map(([n]) => n);
-  };
-
-  const blockTop = (start, overlapCount) => {
-    const minutesFromEight = timeToMinutes(start) - timeToMinutes('8:00 AM');
-    return `${minutesFromEight / 30 + overlapCount * 0.5}rem`;
-  };
-
-  const blockHeight = (start, end) =>
-    `${Math.max((timeToMinutes(end) - timeToMinutes(start)) / 30, 4)}rem`;
-
-  /* ---------- render ---------- */
+  /* ───────── render ───────── */
   return (
     <motion.div
       className="bg-gray-700 rounded-lg shadow-md p-6 mb-8"
@@ -424,88 +399,77 @@ const WeeklyCalendar = ({ courses }) => {
 
       <div className="overflow-x-auto">
         <div className="min-w-[800px]">
-          {/* Header */}
-          <div className="grid grid-cols-6 gap-y-4 gap-x-0 mb-4">
-            <div className="w-24"></div>
-            {days.map(day => (
-              <div key={day} className="text-center">
-                <h3 className="text-lg font-semibold text-blue-400">{day}</h3>
+          {/* header row */}
+          <div className="grid grid-cols-6 gap-y-4 mb-4">
+            {/* gutter column */}
+            <div style={{ width: DAY_LABEL_WIDTH }}></div>
+            {days.map((d) => (
+              <div
+                key={d}
+                className="text-center"
+                style={{ width: `calc((100% - ${DAY_LABEL_WIDTH}px)/5)` }}
+              >
+                <h3 className="text-lg font-semibold text-blue-400">{d}</h3>
               </div>
             ))}
           </div>
 
-          {/* Grid */}
+          {/* time grid */}
           <div className="relative">
-            {/* Time rows */}
-            {timeSlots.map(time => (
-              <div key={time} className="grid grid-cols-6 gap-y-2 gap-x-0 mb-2">
-                <div className="w-24 text-right pr-4">
-                  <span className="text-sm text-gray-400">{time}</span>
+            {timeSlots.map((t) => (
+              <div key={t} className="grid grid-cols-6" style={{ minHeight: ROW_HEIGHT }}>
+                {/* time label */}
+                <div
+                  className="flex items-center justify-end pr-4 border-b border-gray-600"
+                  style={{ width: DAY_LABEL_WIDTH }}
+                >
+                  <span className="text-sm text-gray-400">{t}</span>
                 </div>
-                {days.map(d => (
+                {/* five day cells */}
+                {days.map((d) => (
                   <div
-                    key={`${d}-${time}`}
-                    className="relative min-h-[40px] border-b border-gray-600"
+                    key={`${d}-${t}`}
+                    className="border-b border-gray-600"
+                    style={{ width: `calc((100% - ${DAY_LABEL_WIDTH}px)/5)` }}
                   ></div>
                 ))}
               </div>
             ))}
 
-            {/* Course blocks */}
-            {days.flatMap(day => {
-              const dayCourses = Object.entries(courses).filter(([_, cd]) => {
-                const l = cd.lecture || cd;
-                const d = cd.discussion;
+            {/* course blocks */}
+            {days.flatMap((day, colIdx) => {
+              const blocks = sessionsForDay(day);
+              return blocks.map((blk) => {
+                const startM = timeToMinutes(blk.start);
+                const endM   = timeToMinutes(blk.end);
+                const top    = ((startM - 480) / 30) * ROW_HEIGHT; // 480 = 8*60
+                const height = Math.max((endM - startM) / 30 * ROW_HEIGHT, ROW_HEIGHT);
+
                 return (
-                  (l.times?.[0]?.days || '').split('').map(ch => dayMap[ch]).includes(day) ||
-                  (d?.times?.[0]?.days || '').split('').map(ch => dayMap[ch]).includes(day)
+                  <motion.div
+                    key={`${blk.name}-${blk.label}-${day}`}
+                    className="absolute bg-gray-800 border border-blue-500 rounded p-2 text-white text-sm shadow-lg overflow-hidden"
+                    style={{
+                      top: top,
+                      height: height - 4, // small interior padding
+                      left: `calc(${DAY_LABEL_WIDTH}px + ${colIdx} * ((100% - ${DAY_LABEL_WIDTH}px)/5))`,
+                      width: `calc((100% - ${DAY_LABEL_WIDTH}px)/5)`
+                    }}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    whileHover={{ scale: 1.05, backgroundColor: "#1a365d" }}
+                  >
+                    <p className="font-semibold text-blue-400 break-words">
+                      {blk.name.replace(/\|/g, " ")}
+                    </p>
+                    <p className="text-xs text-gray-400">{blk.label}</p>
+                    {blk.building && blk.room && (
+                      <p className="text-xs text-gray-400 break-words">
+                        {blk.building} {blk.room}
+                      </p>
+                    )}
+                  </motion.div>
                 );
-              });
-
-              return dayCourses.flatMap(([name, data]) => {
-                const lecture    = data.lecture || data;
-                const discussion = data.discussion;
-                const out        = [];
-
-                [['Lecture', lecture.times?.[0]], ['Discussion', discussion?.times?.[0]]]
-                  .forEach(([label, t]) => {
-                    if (!t || !(t.days || '').split('').map(ch => dayMap[ch]).includes(day)) return;
-
-                    const overlapCount = getOverlappingCourses(day, name, data).length;
-                    const dayIndex     = days.indexOf(day);
-
-                    out.push(
-                      <motion.div
-                        key={`${name}-${label}-${day}`}
-                        className="absolute bg-gray-800 border border-blue-500 rounded p-2 text-white text-sm shadow-lg"
-                        style={{
-                          left     : `calc(${dayLabelWidth} + ${dayIndex} * ${dayWidth})`,
-                          width    : dayWidth,
-                          top      : blockTop(t.start, overlapCount),
-                          height   : blockHeight(t.start, t.end),
-                          minHeight: '4rem',
-                        }}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        whileHover={{ scale: 1.05, backgroundColor: '#1a365d' }}
-                      >
-                        <p className="font-semibold text-blue-400 break-words">
-                          {name.replace(/\|/g, ' ')}
-                        </p>
-                        <p className="text-xs text-gray-400">{label}</p>
-                        <p className="text-xs text-gray-400 break-words">
-                          {t.building} {t.room}
-                        </p>
-                        {!!overlapCount && (
-                          <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                            {overlapCount}
-                          </div>
-                        )}
-                      </motion.div>
-                    );
-                  });
-
-                return out;
               });
             })}
           </div>
@@ -514,6 +478,8 @@ const WeeklyCalendar = ({ courses }) => {
     </motion.div>
   );
 };
+
+
 
 export const HomePage = () => {
   const navigate = useNavigate();
