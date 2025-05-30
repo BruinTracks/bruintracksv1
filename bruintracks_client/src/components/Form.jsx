@@ -266,22 +266,78 @@ const InfoDetail = ({
   doubleMajor = '',
   setDoubleMajor = () => {},
   setDoubleMajorName = () => {},
-  maxWorkload = -1,
-  setMaxWorkload = () => {},
   school = '',
   validate = () => {}
 }) => {
   const [dbMajorSelect, setDbMajorSelect] = useState(wantsDbMajor);
   const [secondSchool, setSecondSchool] = useState('');
+  const [techBreadth, setTechBreadth] = useState('');
+  const [secondTechBreadth, setSecondTechBreadth] = useState('');
+  const [techBreadthError, setTechBreadthError] = useState('');
 
   const showDbMajor = (visible) => {
     setWantsDbMajor(visible == 'Yep');
     setDbMajorSelect(visible == 'Yep');
   };
 
+  const isEngineeringSchool = (schoolName) => {
+    return schoolName === 'Engineering';
+  };
+
+  const getTechBreadthOptions = (majorName) => {
+    const allOptions = [
+      'Bioengineering',
+      'Chemical & Biomolecular Engineering',
+      'Civil & Environmental Engineering',
+      'Computer Science',
+      'Electrical & Computer Engineering',
+      'Materials Science & Engineering',
+      'Mechanical & Aerospace Engineering',
+      'Computational Genomics',
+      'Digital Humanities',
+      'Energy and the Environment',
+      'Engineering Mathematics',
+      'Engineering Science',
+      'Nanotechnology',
+      'Pre-Med',
+      'Technology Management',
+      'Urban Planning'
+    ];
+
+    // Special case for Computer Engineering and CSE majors
+    if (majorName === 'Computer Engineering' || majorName === 'Computer Science and Engineering') {
+      return allOptions;
+    }
+
+    // Filter out the major's own department
+    return allOptions.filter(option => {
+      if (majorName === 'Bioengineering' && option === 'Bioengineering') return false;
+      if (majorName === 'Chemical Engineering' && option === 'Chemical & Biomolecular Engineering') return false;
+      if (majorName === 'Civil Engineering' && option === 'Civil & Environmental Engineering') return false;
+      if (majorName === 'Computer Science' && option === 'Computer Science') return false;
+      if (majorName === 'Electrical Engineering' && option === 'Electrical & Computer Engineering') return false;
+      if (majorName === 'Materials Science' && option === 'Materials Science & Engineering') return false;
+      if (majorName === 'Mechanical Engineering' && option === 'Mechanical & Aerospace Engineering') return false;
+      return true;
+    });
+  };
+
+  const validateTechBreadth = () => {
+    if (isEngineeringSchool(school) && !techBreadth) {
+      setTechBreadthError('Please select a technical breadth area');
+      return false;
+    }
+    if (isEngineeringSchool(secondSchool) && !secondTechBreadth) {
+      setTechBreadthError('Please select a technical breadth area for your second major');
+      return false;
+    }
+    setTechBreadthError('');
+    return true;
+  };
+
   return (
     <FormModal
-      handleClick={handleNextClick}
+      handleClick={() => validateTechBreadth() && handleNextClick()}
       handleBackClick={handleBackClick}
       back={true}
       validate={validate}
@@ -289,21 +345,24 @@ const InfoDetail = ({
       <p className="text-4xl font-bold mb-4">Tell us more!</p>
       <br />
       <div className="flex flex-row justify-center items-center">
-        <label className="text-xl mr-5">Maximum # units:</label>
-        <InputField
-          type="number"
-          defaultValue={maxWorkload > -1 ? maxWorkload : null}
-          setValue={setMaxWorkload}
-          required
-          placeholder="0"
-        />
-      </div>
-      <div className="flex flex-row justify-center items-center">
         <label className="text-xl mr-5">Major:</label>
         <div className="flex-1">
           <MajorAutocomplete school={school} major={major} setMajor={setMajor} setMajorName={setMajorName} />
         </div>
       </div>
+      {isEngineeringSchool(school) && (
+        <div className="flex flex-row justify-center items-center mt-4">
+          <label className="text-xl mr-5">Technical Breadth Area:</label>
+          <div className="flex-1">
+            <Dropdown
+              options={getTechBreadthOptions(major)}
+              onSelect={setTechBreadth}
+              defaultOption={techBreadth}
+              placeholder="Select a technical breadth area"
+            />
+          </div>
+        </div>
+      )}
       <div className="flex flex-row justify-center items-center">
         <label className="text-xl mr-5">Double major?</label>
         <Dropdown
@@ -328,7 +387,23 @@ const InfoDetail = ({
               <MajorAutocomplete school={secondSchool} major={doubleMajor} setMajor={setDoubleMajor} setMajorName={setDoubleMajorName} />
             </div>
           </div>
+          {isEngineeringSchool(secondSchool) && (
+            <div className="flex flex-row justify-center items-center mt-4">
+              <label className="text-xl mr-5">Second Major Technical Breadth Area:</label>
+              <div className="flex-1">
+                <Dropdown
+                  options={getTechBreadthOptions(doubleMajor)}
+                  onSelect={setSecondTechBreadth}
+                  defaultOption={secondTechBreadth}
+                  placeholder="Select a technical breadth area"
+                />
+              </div>
+            </div>
+          )}
         </>
+      )}
+      {techBreadthError && (
+        <div className="text-red-600 font-semibold mt-4">{techBreadthError}</div>
       )}
     </FormModal>
   );
@@ -861,9 +936,6 @@ const SummaryView = ({
           ) : (
             <></>
           )}
-          <span>
-            <strong>Max workload:</strong> {data.maxWorkload}
-          </span>
         </motion.div>
         <motion.div
           className="flex flex-col bg-gray-300 rounded-xl p-5"
@@ -1041,7 +1113,6 @@ export const Form = () => {
   const [wantsDbMajor, setWantsDbMajor] = useState(null);
   const [doubleMajor, setDoubleMajor] = useState('');
   const [doubleMajorName, setDoubleMajorName] = useState('');
-  const [maxWorkload, setMaxWorkload] = useState(-1);
   const [earliestClassTime, setEarliestClassTime] = useState(null);
   const [latestClassTime, setLatestClassTime] = useState(null);
 
@@ -1074,8 +1145,7 @@ export const Form = () => {
 
   const infoDetailValidate = () => {
     return major.length > 0 && // Check if major is not empty
-      (!wantsDbMajor || (wantsDbMajor && doubleMajor.length > 0)) && // If double major is selected, check if second major is not empty
-      maxWorkload >= 12; // Check if max workload is at least 12 units
+      (!wantsDbMajor || (wantsDbMajor && doubleMajor.length > 0)); // If double major is selected, check if second major is not empty
   };
 
   const scheduleValidate = () => {
@@ -1128,8 +1198,6 @@ export const Form = () => {
           doubleMajor={doubleMajor}
           setDoubleMajor={setDoubleMajor}
           setDoubleMajorName={setDoubleMajorName}
-          maxWorkload={maxWorkload}
-          setMaxWorkload={setMaxWorkload}
           school={school}
           validate={infoDetailValidate}
         />
@@ -1209,7 +1277,6 @@ export const Form = () => {
             doubleMajor: doubleMajor,
             doubleMajorName: doubleMajorName,
             wantsDbMajor: wantsDbMajor,
-            maxWorkload: maxWorkload,
             prefNoDays: prefNoDays,
             earliestClassTime: earliestClassTime,
             latestClassTime: latestClassTime,

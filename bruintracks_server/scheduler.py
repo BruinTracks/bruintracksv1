@@ -355,6 +355,14 @@ def build_schedule(start_y: int, start_q: str,
                 [c for c in pref if term_db_id in offer_terms_by_course.get(c, set())]
                 for pref in prefixes_raw
             ]
+            
+            # Filter out prefixes that don't meet minimum course requirement
+            prefixes = [p for p in prefixes if len(p) >= LEAST_COURSES_PER_TERM]
+            
+            if not prefixes:
+                # If no valid prefixes found, try to find any combination of available courses
+                prefixes = [[c for c in avail if term_db_id in offer_terms_by_course.get(c, set())][:target]]
+            
             scored = [
                 (sc, sel, pf)
                 for pf in prefixes
