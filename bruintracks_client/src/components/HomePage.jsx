@@ -1,50 +1,80 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import '../index.css';
 import '../main.jsx';
 import { motion } from 'framer-motion';
 import '../App.css';
-import { ArrowLeftCircle, ArrowRightCircle } from 'react-bootstrap-icons';
-import { Dropdown } from './Dropdown.jsx';
-import { InputField } from './InputField.jsx';
-import { Card } from './Card.jsx';
-import { Button } from './Button.jsx';
 import { Chatbox } from './Chatbox.jsx';
 import { FullCoursePlan } from './FullCoursePlan.jsx';
 import { handleSignOut } from '../supabaseClient.js';
-import { useNavigate, useLocation } from 'react-router-dom';
-
-const schedule = {
-  Monday: [
-    { time: '9:00 AM', course: 'CS 31 - Introduction to Computer Science' },
-    { time: '11:00 AM', course: 'Math 33A - Linear Algebra' },
-    { time: '2:00 PM', course: 'Physics 1A - Mechanics' },
-  ],
-  Tuesday: [
-    { time: '10:00 AM', course: 'GE Cluster - Evolution of the Universe' },
-    { time: '1:00 PM', course: 'CS 32 - Data Structures & Algorithms' },
-  ],
-  Wednesday: [
-    { time: '9:00 AM', course: 'CS 31 - Introduction to Computer Science' },
-    { time: '11:00 AM', course: 'Math 33A - Linear Algebra' },
-    { time: '2:00 PM', course: 'Physics 1A - Mechanics' },
-  ],
-  Thursday: [
-    { time: '10:00 AM', course: 'GE Cluster - Evolution of the Universe' },
-    { time: '1:00 PM', course: 'CS 32 - Data Structures & Algorithms' },
-  ],
-  Friday: [
-    { time: '9:00 AM', course: 'CS 31 - Introduction to Computer Science' },
-    { time: '12:00 PM', course: 'Math 33A - Linear Algebra' },
-  ],
-};
+import { useNavigate } from 'react-router-dom';
 
 export const HomePage = () => {
   const navigate = useNavigate();
+  const [scheduleData, setScheduleData] = useState(null);
+
+  useEffect(() => {
+    // Get schedule data from localStorage
+    const storedSchedule = localStorage.getItem('scheduleData');
+    if (storedSchedule) {
+      setScheduleData(JSON.parse(storedSchedule));
+    }
+  }, []);
 
   const onSignOut = () => {
     handleSignOut();
     navigate("/");
   };
+
+  // Convert schedule data to weekly format
+  const getWeeklySchedule = () => {
+    if (!scheduleData?.schedule) return {};
+
+    const weeklySchedule = {
+      Monday: [],
+      Tuesday: [],
+      Wednesday: [],
+      Thursday: [],
+      Friday: []
+    };
+
+    // Process each term's schedule
+    Object.entries(scheduleData.schedule).forEach(([term, courses]) => {
+      Object.entries(courses).forEach(([courseId, courseInfo]) => {
+        if (courseInfo.lecture?.times) {
+          courseInfo.lecture.times.forEach(time => {
+            const days = time.days.split('');
+            days.forEach(day => {
+              const dayName = {
+                'M': 'Monday',
+                'T': 'Tuesday',
+                'W': 'Wednesday',
+                'Th': 'Thursday',
+                'F': 'Friday'
+              }[day];
+              if (dayName) {
+                weeklySchedule[dayName].push({
+                  time: `${time.start} - ${time.end}`,
+                  course: `${courseId} (${courseInfo.lecture.section})`,
+                  building: time.building,
+                  room: time.room,
+                  instructors: courseInfo.lecture.instructors.join(', ')
+                });
+              }
+            });
+          });
+        }
+      });
+    });
+
+    // Sort each day's schedule by start time
+    Object.keys(weeklySchedule).forEach(day => {
+      weeklySchedule[day].sort((a, b) => a.time.localeCompare(b.time));
+    });
+
+    return weeklySchedule;
+  };
+
+  const weeklySchedule = getWeeklySchedule();
 
   return (
     <div className="bg-gray-900 min-h-screen min-w-screen text-white flex flex-col items-center pt-10 pl-5">
@@ -69,10 +99,9 @@ export const HomePage = () => {
             animate={{ opacity: 1, y: 0 }}
           >
             Proposed schedule
-          </motion.h2>{' '}
-          <br />
+          </motion.h2>
           <div className="flex flex-row">
-            {Object.keys(schedule).map((day, index) => (
+            {Object.entries(weeklySchedule).map(([day, classes], index) => (
               <motion.div
                 key={index}
                 className="bg-gray-700 mr-4 rounded-2xl shadow-md p-5 h-full"
@@ -82,16 +111,17 @@ export const HomePage = () => {
                 transition={{ delay: index * 0.1 }}
               >
                 <h2 className="text-xl font-bold text-blue-400">{day}</h2>
-                {schedule[day].map((item, i) => (
+                {classes.map((item, i) => (
                   <div key={i} className="mt-2">
                     <p className="text-lg font-semibold">{item.time}</p>
                     <p className="text-gray-400">{item.course}</p>
+                    <p className="text-sm text-gray-500">{item.building} {item.room}</p>
+                    <p className="text-sm text-gray-500">{item.instructors}</p>
                   </div>
                 ))}
               </motion.div>
             ))}
           </div>
-
         </motion.div>
 
         <div className="flex flex-row ml-10 mr-10 h-full">

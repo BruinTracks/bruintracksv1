@@ -778,7 +778,22 @@ const SummaryView = ({
         },
         body: JSON.stringify({ 
           jsonData: processedRequirements,
-          transcript: completedCourses
+          transcript: completedCourses,
+          grad_year: data.gradYear,
+          grad_quarter: data.gradQuarter,
+          preferences: {
+            allow_warnings: data.allowWarnings,
+            allow_primary_conflicts: data.allowPrimaryConflicts,
+            allow_secondary_conflicts: data.allowSecondaryConflicts,
+            pref_priority: data.prefPriority,
+            pref_earliest: data.earliestClassTime,
+            pref_latest: data.latestClassTime,
+            pref_no_days: data.prefNoDays,
+            pref_buildings: data.prefBuildings,
+            pref_instructors: data.prefInstructors,
+            max_courses_per_term: data.maxCoursesPerTerm,
+            least_courses_per_term: data.leastCoursesPerTerm
+          }
         }),
       });
 
@@ -788,8 +803,14 @@ const SummaryView = ({
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const coursesList = await response.json();
-      console.log("Courses to schedule:", JSON.stringify(coursesList, null, 2));
+      const scheduleData = await response.json();
+      console.log("Schedule data:", JSON.stringify(scheduleData, null, 2));
+
+      // Store schedule data in localStorage
+      localStorage.setItem('scheduleData', JSON.stringify(scheduleData));
+
+      // Navigate to home page
+      navigate('/Home');
     } catch (error) {
       console.error("Error in handleGenerateSchedule:", error);
     }

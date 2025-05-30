@@ -149,7 +149,7 @@ async function extractCourses(chunks) {
 (async (jsonData) => {
   if (jsonData) {
     const chunks = await chunkMajorRequirements("UserMajor", jsonData);
-    await extractCourses(chunks);
+      await extractCourses(chunks);
   } else {
     console.error('No JSON data provided.');
   }
