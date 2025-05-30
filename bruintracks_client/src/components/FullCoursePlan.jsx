@@ -47,7 +47,7 @@ export const FullCoursePlan = () => {
         <button
           className="text-white mt-1 hover:text-blue-500 flex flex-col justify-center items-center text-center"
         >
-          <a className="!text-white visited:text-white" href="/CoursePlanDetail">See full four-year plan</a>
+          <a className="!text-white visited:text-white" href="/CoursePlanDetail">See full plan</a>
           <ArrowRightCircle size={30} />
         </button>
       </div>
