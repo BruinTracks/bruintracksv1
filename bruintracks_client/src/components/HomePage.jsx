@@ -357,7 +357,7 @@ export const WeeklyCalendar = ({ courses }) => {
   ];
 
   const DAY_LABEL_WIDTH = 96;  // px (Tailwind w‑24 ⇒ 6rem)
-  const ROW_HEIGHT      = 40;  // px (min‑h‑[40px]) – each slot is 30 min
+  const ROW_HEIGHT      = 40;  // px (min‑h‑[40px]) – each slot is 30 min
 
   /* ───────── helpers ───────── */
   const timeToMinutes = (t) => {
@@ -373,6 +373,35 @@ export const WeeklyCalendar = ({ courses }) => {
 
   const occursOn = (timeObj, day) =>
     (timeObj?.days || "").split("").some((d) => dayMap[d] === day);
+
+  // New function to detect overlapping courses
+  const findOverlappingCourses = (day) => {
+    const sessions = sessionsForDay(day);
+    const overlaps = new Map(); // Map to store overlaps for each time slot
+
+    sessions.forEach((session1, idx1) => {
+      const start1 = timeToMinutes(session1.start);
+      const end1 = timeToMinutes(session1.end);
+
+      sessions.forEach((session2, idx2) => {
+        if (idx1 === idx2) return; // Skip same session
+
+        const start2 = timeToMinutes(session2.start);
+        const end2 = timeToMinutes(session2.end);
+
+        // Check if sessions overlap
+        if (start1 < end2 && start2 < end1) {
+          const key = `${session1.name}-${session1.label}`;
+          if (!overlaps.has(key)) {
+            overlaps.set(key, new Set());
+          }
+          overlaps.get(key).add(`${session2.name}-${session2.label}`);
+        }
+      });
+    });
+
+    return overlaps;
+  };
 
   /**
    * Flatten ‑> array of { name, label, start, end, building, room } for that day
@@ -439,11 +468,14 @@ export const WeeklyCalendar = ({ courses }) => {
             {/* course blocks */}
             {days.flatMap((day, colIdx) => {
               const blocks = sessionsForDay(day);
+              const overlaps = findOverlappingCourses(day);
+              
               return blocks.map((blk) => {
                 const startM = timeToMinutes(blk.start);
                 const endM   = timeToMinutes(blk.end);
-                const top    = ((startM - 480) / 30) * ROW_HEIGHT; // 480 = 8*60
+                const top    = ((startM - 480) / 30) * ROW_HEIGHT; // 480 = 8*60
                 const height = Math.max((endM - startM) / 30 * ROW_HEIGHT, ROW_HEIGHT);
+                const overlapCount = overlaps.get(`${blk.name}-${blk.label}`)?.size || 0;
 
                 return (
                   <motion.div
@@ -459,6 +491,11 @@ export const WeeklyCalendar = ({ courses }) => {
                     animate={{ opacity: 1, scale: 1 }}
                     whileHover={{ scale: 1.05, backgroundColor: "#1a365d" }}
                   >
+                    {overlapCount > 0 && (
+                      <div className="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        {overlapCount}
+                      </div>
+                    )}
                     <p className="font-semibold text-blue-400 break-words">
                       {blk.name.replace(/\|/g, " ")}
                     </p>
@@ -478,8 +515,6 @@ export const WeeklyCalendar = ({ courses }) => {
     </motion.div>
   );
 };
-
-
 
 export const HomePage = () => {
   const navigate = useNavigate();
@@ -571,7 +606,11 @@ export const HomePage = () => {
 
         if (data.schedule.note) {
           console.log("Found note in schedule data:", data.schedule.note);
-          const unscheduled = data.schedule.note.replace('Unable to schedule: ', '').split(', ');
+          // Parse the note to get unscheduled courses with their reasons
+          const unscheduled = data.schedule.note
+            .replace('Unable to schedule: ', '')
+            .split('; ')
+            .map(course => course.trim());
           console.log("Parsed unscheduled courses:", unscheduled);
           setUnscheduledCourses(unscheduled);
         }
@@ -729,18 +768,29 @@ export const HomePage = () => {
           >
             <h2 className="text-2xl font-bold text-white mb-4">Unscheduled Courses</h2>
             <p className="text-gray-400 mb-4">
-              The following courses could not be scheduled due to conflicts or availability:
+              The following courses could not be scheduled:
             </p>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {unscheduledCourses.map((course, idx) => (
-                <motion.div 
-                  key={idx} 
-                  className="bg-gray-800 rounded p-3"
-                  whileHover={{ scale: 1.05 }}
-                >
-                  <p className="text-gray-300">{cleanCourseName(course)}</p>
-                </motion.div>
-              ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {unscheduledCourses.map((course, idx) => {
+                // Parse the course and its reason
+                const [courseCode, reason] = course.split(' (');
+                const cleanReason = reason ? reason.slice(0, -1) : 'No reason provided';
+                
+                return (
+                  <motion.div 
+                    key={idx} 
+                    className="bg-gray-800 rounded p-4"
+                    whileHover={{ scale: 1.05 }}
+                  >
+                    <h3 className="text-lg font-semibold text-blue-400 mb-2">
+                      {cleanCourseName(courseCode)}
+                    </h3>
+                    <p className="text-gray-300 text-sm">
+                      {cleanReason}
+                    </p>
+                  </motion.div>
+                );
+              })}
             </div>
           </motion.div>
         )}
