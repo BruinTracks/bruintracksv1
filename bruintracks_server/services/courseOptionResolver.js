@@ -1,5 +1,13 @@
-const { spawn } = require('child_process');
-const path = require('path');
+import { spawn } from 'child_process';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+
 
 function runPythonScript(scriptPath, args = []) {
     return new Promise((resolve, reject) => {
@@ -29,7 +37,7 @@ function runPythonScript(scriptPath, args = []) {
     });
 }
 
-async function buildSchedule(params) {
+export async function buildSchedule(params) {
     const scriptPath = path.join(__dirname, '../../bruintracks_scripts/scheduler/scheduler.py');
     
     // Set environment variables from params
@@ -48,7 +56,7 @@ async function buildSchedule(params) {
     }
 }
 
-async function getElectiveOptions(params) {
+export async function getElectiveOptions(params) {
     const scriptPath = path.join(__dirname, '../../bruintracks_scripts/scheduler/get_elective_options.py');
     
     // Set environment variables from params
@@ -67,8 +75,3 @@ async function getElectiveOptions(params) {
         throw error;
     }
 }
-
-module.exports = {
-    buildSchedule,
-    getElectiveOptions
-}; 

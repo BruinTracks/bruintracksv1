@@ -34,7 +34,14 @@ DEFAULT_COURSES_TO_SCHEDULE = [
     "PHYSICS|1A", "PHYSICS|1B", "PHYSICS|1C", "COM SCI|M51A",
     "PHYSICS|4AL", "COM SCI|111", "COM SCI|118", "COM SCI|131",
     "COM SCI|180", "COM SCI|181", "COM SCI|M151B", "COM SCI|M152A",
-    "C&EE|110", "COM SCI|130"
+    "C&EE|110", "COM SCI|130",
+    # Add RESOLVE requirements
+    "RESOLVE: Computer Science Elective #1",
+    "RESOLVE: Computer Science Elective #2",
+    "RESOLVE: Computer Science Elective #3",
+    "RESOLVE: Technical Breadth #1",
+    "RESOLVE: Technical Breadth #2",
+    "RESOLVE: Technical Breadth #3"
 ]
 COURSES_TO_SCHEDULE = DEFAULT_COURSES_TO_SCHEDULE.copy()
 
@@ -148,6 +155,24 @@ def quarter_prefixes(prereq_logic: Dict[str, List[Tuple[str, str, str, str]]],
 def build_schedule(start_y: int, start_q: str,
                    end_y: int, end_q: str,
                    allow_warnings: bool) -> Tuple[Dict[str, object], Optional[str]]:
+    global COURSES_TO_SCHEDULE
+    
+    # Separate RESOLVE requirements from regular courses and count them
+    resolve_reqs = []
+    resolve_counts = {}
+    for course in COURSES_TO_SCHEDULE:
+        if course.startswith("RESOLVE:"):
+            # Extract the base requirement name by removing "RESOLVE: " and any trailing " #N"
+            full_req_name = course[8:].strip()  # Skip "RESOLVE: "
+            # Remove the trailing number if it exists
+            base_req_name = re.sub(r' #\d+$', '', full_req_name)
+            resolve_counts[base_req_name] = resolve_counts.get(base_req_name, 0) + 1
+            resolve_reqs.append(base_req_name)  # Store without prefix and number
+    regular_courses = [c for c in COURSES_TO_SCHEDULE if not c.startswith("RESOLVE:")]
+    
+    # First build schedule with regular courses
+    original_courses = COURSES_TO_SCHEDULE[:]
+    COURSES_TO_SCHEDULE = regular_courses
 
     # term labels & DB ids -----------------------------------------------------
     terms = create_term_sequence(start_q, start_y, end_q, end_y)
@@ -446,6 +471,116 @@ def build_schedule(start_y: int, start_q: str,
     note = None
     if unscheduled:
         note = "Unable to schedule: " + ", ".join(sorted(unscheduled))
+
+    # Restore original COURSES_TO_SCHEDULE
+    COURSES_TO_SCHEDULE = original_courses
+    
+    # Now distribute RESOLVE requirements in sparse quarters
+    # Initialize tracking of placed requirements
+    placed_counts = {req: 0 for req in resolve_counts.keys()}
+    unplaced_reqs = []
+    
+    # First, replace FILLER courses with electives where possible
+    for term in terms:
+        term_courses = schedule[term]
+        if isinstance(term_courses, dict):
+            # Find FILLER courses to replace
+            filler_keys = [k for k, v in term_courses.items() if k == FILLER_COURSE]
+            for filler in filler_keys:
+                # Try to find an unplaced requirement
+                for req_name in resolve_counts.keys():
+                    if placed_counts[req_name] < resolve_counts[req_name]:
+                        placed_count = placed_counts[req_name] + 1
+                        term_courses[f"{req_name} #{placed_count}"] = {'lecture': None, 'discussion': None}
+                        term_courses.pop(filler)
+                        placed_counts[req_name] = placed_count
+                        break
+        elif isinstance(term_courses, list):
+            # Replace FILLER courses in list
+            while FILLER_COURSE in term_courses:
+                idx = term_courses.index(FILLER_COURSE)
+                replaced = False
+                for req_name in resolve_counts.keys():
+                    if placed_counts[req_name] < resolve_counts[req_name]:
+                        placed_count = placed_counts[req_name] + 1
+                        term_courses[idx] = f"{req_name} #{placed_count}"
+                        placed_counts[req_name] = placed_count
+                        replaced = True
+                        break
+                if not replaced:
+                    break
+
+    # Then, try to place remaining requirements, preferring later terms
+    # Sort terms in reverse order (latest first)
+    remaining_terms = sorted(terms, reverse=True)
+    
+    for term in remaining_terms:
+        term_courses = schedule[term]
+        if isinstance(term_courses, dict):
+            current_count = len(term_courses)
+            # Try to place requirements while respecting their counts
+            for req_name in resolve_counts.keys():
+                while (current_count < MAX_COURSES_PER_TERM and 
+                       placed_counts[req_name] < resolve_counts[req_name]):
+                    placed_count = placed_counts[req_name] + 1
+                    term_courses[f"{req_name} #{placed_count}"] = {'lecture': None, 'discussion': None}
+                    placed_counts[req_name] = placed_count
+                    current_count += 1
+        elif isinstance(term_courses, list):
+            current_count = len(term_courses)
+            # Try to place requirements while respecting their counts
+            for req_name in resolve_counts.keys():
+                while (current_count < MAX_COURSES_PER_TERM and 
+                       placed_counts[req_name] < resolve_counts[req_name]):
+                    placed_count = placed_counts[req_name] + 1
+                    term_courses.append(f"{req_name} #{placed_count}")
+                    placed_counts[req_name] = placed_count
+                    current_count += 1
+
+    # If we still have unplaced requirements, try one more pass from the beginning
+    # but only for terms that have space and aren't just filled with electives
+    if any(placed_counts[req] < resolve_counts[req] for req in resolve_counts):
+        for term in terms:
+            term_courses = schedule[term]
+            if isinstance(term_courses, dict):
+                # Count non-elective courses in this term
+                non_elective_count = sum(1 for c in term_courses if not any(c.startswith(req) for req in resolve_counts))
+                if non_elective_count > 0:  # Only add to terms that have some real courses
+                    current_count = len(term_courses)
+                    for req_name in resolve_counts.keys():
+                        while (current_count < MAX_COURSES_PER_TERM and 
+                               placed_counts[req_name] < resolve_counts[req_name]):
+                            placed_count = placed_counts[req_name] + 1
+                            term_courses[f"{req_name} #{placed_count}"] = {'lecture': None, 'discussion': None}
+                            placed_counts[req_name] = placed_count
+                            current_count += 1
+            elif isinstance(term_courses, list):
+                non_elective_count = sum(1 for c in term_courses if not any(c.startswith(req) for req in resolve_counts))
+                if non_elective_count > 0:
+                    current_count = len(term_courses)
+                    for req_name in resolve_counts.keys():
+                        while (current_count < MAX_COURSES_PER_TERM and 
+                               placed_counts[req_name] < resolve_counts[req_name]):
+                            placed_count = placed_counts[req_name] + 1
+                            term_courses.append(f"{req_name} #{placed_count}")
+                            placed_counts[req_name] = placed_count
+                            current_count += 1
+
+    # Update note if we couldn't schedule all RESOLVE requirements
+    unplaced_reqs = []
+    for req_name, count in resolve_counts.items():
+        remaining = count - placed_counts[req_name]
+        if remaining > 0:
+            # Add the numbered versions to unplaced_reqs
+            start_num = placed_counts[req_name] + 1
+            for i in range(remaining):
+                unplaced_reqs.append(f"{req_name} #{start_num + i}")
+
+    if unplaced_reqs:
+        if note:
+            note += "; Also unable to schedule: " + ", ".join(sorted(unplaced_reqs))
+        else:
+            note = "Unable to schedule: " + ", ".join(sorted(unplaced_reqs))
 
     return schedule, note
 

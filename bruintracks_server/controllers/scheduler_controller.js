@@ -22,14 +22,7 @@ You are helping build a structured list of courses required for a major. Your ta
    - Only include the selected course, not all options
 
 2. For elective requirements with specific counts:
-   - Pay close attention to the number of courses required (e.g., "Select six additional major field elective courses")
-   - Select EXACTLY the specified number of courses
-   - Choose courses that:
-     * Complement the student's completed coursework
-     * Follow a logical progression
-     * Avoid duplicates
-     * Consider prerequisites
-   - If a maximum unit limit is specified (e.g., "maximum of 8 units of course 199"), respect that limit
+   - Do NOT come up with any course substitutions. Instead, assume every elective is 4 units. Add the elective title placeholder, proceeded by "RESOLVE:", to the list and then the number of the elective. For example, the Computer Science and Engineering requires 12 units of electives. Then we include "RESOLVE: Computer Science Elective #1", "RESOLVE: Computer Science Elective #2", "RESOLVE: Computer Science Elective #3". Even if it's just one particular elective, i.e. the Electrical and Computer Engineering Elective for Computer Science & Engineering, we'll still label it "RESOLVE: Electrical and Computer Engineering Elective #1".
 
 3. For technical breadth requirements:
    - Select the specified number of courses
@@ -58,7 +51,6 @@ You are helping build a structured list of courses required for a major. Your ta
 - Make intelligent selections based on course descriptions and student's background
 - Consider prerequisites and course dependencies
 - Select EXACTLY the number of courses specified in the requirements
-- For electives, choose courses that form a coherent specialization
 `;
 
 export const getCoursesToSchedule = async (req, res) => {
@@ -187,7 +179,9 @@ export const getCoursesToSchedule = async (req, res) => {
               console.log("Adding courses:", courses);
 
               courses.forEach((course) => {
-                if (typeof course === "string" && course.trim()) {
+		if (course.includes("RESOLVE"))
+		      allCourses.add(course);
+		else if (typeof course === "string" && course.trim()) {
                   // Handle multi-word subjects like "COM SCI" and "EC ENGR"
                   const parts = course.trim().split(/\s+/);
                   if (parts.length >= 2) {
