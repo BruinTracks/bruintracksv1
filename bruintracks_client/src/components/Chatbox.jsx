@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
 
-export const Chatbox = () => {
+export const Chatbox = ({ scheduleData }) => {
   const { session } = useAuth();
   const [messages, setMessages] = useState(() => {
     const savedMessages = localStorage.getItem('chatHistory');
@@ -66,7 +66,8 @@ export const Chatbox = () => {
         },
         body: JSON.stringify({
           question: userMessage,
-          chatHistory: updatedMessages
+          chatHistory: updatedMessages,
+          scheduleData: scheduleData
         }),
       });
 

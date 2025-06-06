@@ -18,7 +18,7 @@ const CourseCard = ({ course, courseData, isFirstTerm }) => {
   // For terms after the first one, show a simple card
   if (!isFirstTerm) {
     return (
-      <motion.div 
+      <motion.div
         className="bg-gray-700 rounded-lg shadow-md p-3 mb-4"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -34,7 +34,7 @@ const CourseCard = ({ course, courseData, isFirstTerm }) => {
   // If it's a filler course, show a simple card without the "not available" message
   if (course === 'FILLER' || course.startsWith('FILLER_')) {
     return (
-      <motion.div 
+      <motion.div
         className="bg-gray-700 rounded-lg shadow-md p-4 mb-4"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -48,7 +48,7 @@ const CourseCard = ({ course, courseData, isFirstTerm }) => {
   // If courseData is not an object or is null, return a simple card
   if (!courseData || typeof courseData !== 'object') {
     return (
-      <motion.div 
+      <motion.div
         className="bg-gray-700 rounded-lg shadow-md p-4 mb-4"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -80,14 +80,14 @@ const CourseCard = ({ course, courseData, isFirstTerm }) => {
   };
 
   return (
-    <motion.div 
+    <motion.div
       className="bg-gray-700 rounded-lg shadow-md p-4 mb-4"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -5 }}
     >
       <h3 className="text-lg font-semibold text-white mb-2">{cleanCourseName(course)}</h3>
-      
+
       {/* Lecture Section */}
       <div className="mb-3">
         <h4 className="text-md font-medium text-blue-400">Lecture</h4>
@@ -96,42 +96,81 @@ const CourseCard = ({ course, courseData, isFirstTerm }) => {
             <p className="text-sm text-gray-400">Section: {lecture.section}</p>
           )}
           {lecture.instructors && (
-            <p className="text-sm text-gray-400">Instructor: {Array.isArray(lecture.instructors) ? lecture.instructors.join(', ') : lecture.instructors}</p>
+            <p className="text-sm text-gray-400">
+              Instructor:{' '}
+              {Array.isArray(lecture.instructors)
+                ? lecture.instructors.join(', ')
+                : lecture.instructors}
+            </p>
           )}
-          {lecture.times && lecture.times.map((time, idx) => (
-            <div key={idx} className="text-sm text-gray-400">
-              {time.days && <p>Days: {time.days}</p>}
-              {time.start && time.end && <p>Time: {time.start} - {time.end}</p>}
-              {time.building && time.room && <p>Location: {time.building} {time.room}</p>}
-            </div>
-          ))}
+          {lecture.times &&
+            lecture.times.map((time, idx) => (
+              <div key={idx} className="text-sm text-gray-400">
+                {time.days && <p>Days: {time.days}</p>}
+                {time.start && time.end && <p>Time: {time.start} - {time.end}</p>}
+                {time.building && time.room && (
+                  <p>Location: {time.building} {time.room}</p>
+                )}
+              </div>
+            ))}
           {lecture.enrollment_total !== undefined && (
             <div className="mt-2 space-y-2">
               {/* Enrollment Bar */}
               <div>
                 <div className="flex justify-between text-xs text-gray-400 mb-1">
-                  <span>Enrollment: {lecture.enrollment_total}/{lecture.enrollment_cap}</span>
-                  <span>{Math.round(getEnrollmentPercentage(lecture.enrollment_total, lecture.enrollment_cap))}%</span>
+                  <span>
+                    Enrollment: {lecture.enrollment_total}/{lecture.enrollment_cap}
+                  </span>
+                  <span>
+                    {Math.round(getEnrollmentPercentage(
+                      lecture.enrollment_total,
+                      lecture.enrollment_cap
+                    ))}
+                    %
+                  </span>
                 </div>
                 <div className="w-full bg-gray-600 rounded-full h-2">
-                  <div 
-                    className={`h-2 rounded-full ${getEnrollmentColor(getEnrollmentPercentage(lecture.enrollment_total, lecture.enrollment_cap))}`}
-                    style={{ width: `${getEnrollmentPercentage(lecture.enrollment_total, lecture.enrollment_cap)}%` }}
+                  <div
+                    className={`h-2 rounded-full ${getEnrollmentColor(
+                      getEnrollmentPercentage(
+                        lecture.enrollment_total,
+                        lecture.enrollment_cap
+                      )
+                    )}`}
+                    style={{
+                      width: `${getEnrollmentPercentage(
+                        lecture.enrollment_total,
+                        lecture.enrollment_cap
+                      )}%`
+                    }}
                   />
                 </div>
               </div>
-              
+
               {/* Waitlist Bar */}
               {lecture.waitlist_total > 0 && (
                 <div>
                   <div className="flex justify-between text-xs text-gray-400 mb-1">
-                    <span>Waitlist: {lecture.waitlist_total}/{lecture.waitlist_cap}</span>
-                    <span>{Math.round(getEnrollmentPercentage(lecture.waitlist_total, lecture.waitlist_cap))}%</span>
+                    <span>
+                      Waitlist: {lecture.waitlist_total}/{lecture.waitlist_cap}
+                    </span>
+                    <span>
+                      {Math.round(getEnrollmentPercentage(
+                        lecture.waitlist_total,
+                        lecture.waitlist_cap
+                      ))}
+                      %
+                    </span>
                   </div>
                   <div className="w-full bg-gray-600 rounded-full h-2">
-                    <div 
+                    <div
                       className="h-2 rounded-full bg-purple-500"
-                      style={{ width: `${getEnrollmentPercentage(lecture.waitlist_total, lecture.waitlist_cap)}%` }}
+                      style={{
+                        width: `${getEnrollmentPercentage(
+                          lecture.waitlist_total,
+                          lecture.waitlist_cap
+                        )}%`
+                      }}
                     />
                   </div>
                 </div>
@@ -150,42 +189,81 @@ const CourseCard = ({ course, courseData, isFirstTerm }) => {
               <p className="text-sm text-gray-400">Section: {discussion.section}</p>
             )}
             {discussion.instructors && (
-              <p className="text-sm text-gray-400">Instructor: {Array.isArray(discussion.instructors) ? discussion.instructors.join(', ') : discussion.instructors}</p>
+              <p className="text-sm text-gray-400">
+                Instructor:{' '}
+                {Array.isArray(discussion.instructors)
+                  ? discussion.instructors.join(', ')
+                  : discussion.instructors}
+              </p>
             )}
-            {discussion.times && discussion.times.map((time, idx) => (
-              <div key={idx} className="text-sm text-gray-400">
-                {time.days && <p>Days: {time.days}</p>}
-                {time.start && time.end && <p>Time: {time.start} - {time.end}</p>}
-                {time.building && time.room && <p>Location: {time.building} {time.room}</p>}
-              </div>
-            ))}
+            {discussion.times &&
+              discussion.times.map((time, idx) => (
+                <div key={idx} className="text-sm text-gray-400">
+                  {time.days && <p>Days: {time.days}</p>}
+                  {time.start && time.end && <p>Time: {time.start} - {time.end}</p>}
+                  {time.building && time.room && (
+                    <p>Location: {time.building} {time.room}</p>
+                  )}
+                </div>
+              ))}
             {discussion.enrollment_total !== undefined && (
               <div className="mt-2 space-y-2">
                 {/* Enrollment Bar */}
                 <div>
                   <div className="flex justify-between text-xs text-gray-400 mb-1">
-                    <span>Enrollment: {discussion.enrollment_total}/{discussion.enrollment_cap}</span>
-                    <span>{Math.round(getEnrollmentPercentage(discussion.enrollment_total, discussion.enrollment_cap))}%</span>
+                    <span>
+                      Enrollment: {discussion.enrollment_total}/{discussion.enrollment_cap}
+                    </span>
+                    <span>
+                      {Math.round(getEnrollmentPercentage(
+                        discussion.enrollment_total,
+                        discussion.enrollment_cap
+                      ))}
+                      %
+                    </span>
                   </div>
                   <div className="w-full bg-gray-600 rounded-full h-2">
-                    <div 
-                      className={`h-2 rounded-full ${getEnrollmentColor(getEnrollmentPercentage(discussion.enrollment_total, discussion.enrollment_cap))}`}
-                      style={{ width: `${getEnrollmentPercentage(discussion.enrollment_total, discussion.enrollment_cap)}%` }}
+                    <div
+                      className={`h-2 rounded-full ${getEnrollmentColor(
+                        getEnrollmentPercentage(
+                          discussion.enrollment_total,
+                          discussion.enrollment_cap
+                        )
+                      )}`}
+                      style={{
+                        width: `${getEnrollmentPercentage(
+                          discussion.enrollment_total,
+                          discussion.enrollment_cap
+                        )}%`
+                      }}
                     />
                   </div>
                 </div>
-                
+
                 {/* Waitlist Bar */}
                 {discussion.waitlist_total > 0 && (
                   <div>
                     <div className="flex justify-between text-xs text-gray-400 mb-1">
-                      <span>Waitlist: {discussion.waitlist_total}/{discussion.waitlist_cap}</span>
-                      <span>{Math.round(getEnrollmentPercentage(discussion.waitlist_total, discussion.waitlist_cap))}%</span>
+                      <span>
+                        Waitlist: {discussion.waitlist_total}/{discussion.waitlist_cap}
+                      </span>
+                      <span>
+                        {Math.round(getEnrollmentPercentage(
+                          discussion.waitlist_total,
+                          discussion.waitlist_cap
+                        ))}
+                        %
+                      </span>
                     </div>
                     <div className="w-full bg-gray-600 rounded-full h-2">
-                      <div 
+                      <div
                         className="h-2 rounded-full bg-purple-500"
-                        style={{ width: `${getEnrollmentPercentage(discussion.waitlist_total, discussion.waitlist_cap)}%` }}
+                        style={{
+                          width: `${getEnrollmentPercentage(
+                            discussion.waitlist_total,
+                            discussion.waitlist_cap
+                          )}%`
+                        }}
                       />
                     </div>
                   </div>
@@ -201,27 +279,43 @@ const CourseCard = ({ course, courseData, isFirstTerm }) => {
 
 const QuarterSchedule = ({ quarter, courses, isFirstTerm }) => {
   console.log(`Rendering QuarterSchedule for ${quarter}:`, courses);
-  
+
   // If courses is not an array or object, return null
   if (!courses || (typeof courses !== 'object' && !Array.isArray(courses))) {
     return null;
   }
 
   return (
-    <motion.div 
+    <motion.div
       className="mb-8"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
     >
       <h2 className="text-2xl font-bold text-white mb-4">{quarter}</h2>
-      <div className={`grid ${isFirstTerm ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-5'} gap-4`}>
+      <div
+        className={`grid ${
+          isFirstTerm
+            ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+            : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-5'
+        } gap-4`}
+      >
         {Array.isArray(courses) ? (
           courses.map((course, idx) => (
-            <CourseCard key={idx} course={course} courseData={null} isFirstTerm={isFirstTerm} />
+            <CourseCard
+              key={idx}
+              course={course}
+              courseData={null}
+              isFirstTerm={isFirstTerm}
+            />
           ))
         ) : (
           Object.entries(courses).map(([course, courseData]) => (
-            <CourseCard key={course} course={course} courseData={courseData} isFirstTerm={isFirstTerm} />
+            <CourseCard
+              key={course}
+              course={course}
+              courseData={courseData}
+              isFirstTerm={isFirstTerm}
+            />
           ))
         )}
       </div>
@@ -231,7 +325,7 @@ const QuarterSchedule = ({ quarter, courses, isFirstTerm }) => {
 
 const ScheduleSummary = ({ scheduleData }) => {
   console.log("Rendering ScheduleSummary with data:", scheduleData);
-  
+
   const totalCourses = Object.values(scheduleData).reduce((acc, quarter) => {
     if (Array.isArray(quarter)) {
       return acc + quarter.length;
@@ -248,9 +342,9 @@ const ScheduleSummary = ({ scheduleData }) => {
     try {
       const storedSchedule = localStorage.getItem('scheduleData');
       if (!storedSchedule) return null;
-      
+
       const data = JSON.parse(storedSchedule);
-      return data.schedule?.preferences || null;
+      return data.preferences || null; // ← use data.preferences, not data.schedule.preferences
     } catch (error) {
       console.error("Error getting preferences:", error);
       return null;
@@ -260,30 +354,30 @@ const ScheduleSummary = ({ scheduleData }) => {
   const preferences = getPreferences();
 
   return (
-    <motion.div 
-      className="bg-gray-700 rounded-lg shadow-md p-6 mb-8"
+    <motion.div
+      className="bg-gray-700 rounded-lg p-6 mb-8"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
     >
       <h2 className="text-2xl font-bold text-white mb-4">Schedule Summary</h2>
-      
+
       {/* Basic Schedule Info */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <motion.div 
+        <motion.div
           className="bg-gray-800 p-4 rounded-lg"
           whileHover={{ scale: 1.05 }}
         >
           <h3 className="text-lg font-semibold text-blue-400">Total Courses</h3>
           <p className="text-3xl font-bold text-white">{totalCourses}</p>
         </motion.div>
-        <motion.div 
+        <motion.div
           className="bg-gray-800 p-4 rounded-lg"
           whileHover={{ scale: 1.05 }}
         >
           <h3 className="text-lg font-semibold text-blue-400">Start Quarter</h3>
           <p className="text-xl text-white">{startQuarter}</p>
         </motion.div>
-        <motion.div 
+        <motion.div
           className="bg-gray-800 p-4 rounded-lg"
           whileHover={{ scale: 1.05 }}
         >
@@ -294,18 +388,21 @@ const ScheduleSummary = ({ scheduleData }) => {
 
       {/* Preferences Summary */}
       {preferences && (
-        <motion.div 
+        <motion.div
           className="bg-gray-800 rounded-lg p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
         >
-          <h3 className="text-lg font-semibold text-blue-400 mb-3">Your Preferences</h3>
+          <h3 className="text-lg font-semibold text-blue-400 mb-3">
+            Your Preferences
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Course Load */}
             <div className="bg-gray-700 p-3 rounded">
               <p className="text-sm text-gray-400">Course Load</p>
               <p className="text-white">
-                {preferences.least_courses_per_term} - {preferences.most_courses_per_term} courses per quarter
+                {preferences.least_courses_per_term} -{' '}
+                {preferences.max_courses_per_term} courses per quarter
               </p>
             </div>
 
@@ -313,7 +410,9 @@ const ScheduleSummary = ({ scheduleData }) => {
             <div className="bg-gray-700 p-3 rounded">
               <p className="text-sm text-gray-400">Preferred Times</p>
               <p className="text-white">
-                {preferences.preferred_times?.join(', ') || 'No time preferences'}
+                {preferences.pref_earliest && preferences.pref_latest
+                  ? `${preferences.pref_earliest} - ${preferences.pref_latest}`
+                  : 'No time preferences'}
               </p>
             </div>
 
@@ -321,37 +420,40 @@ const ScheduleSummary = ({ scheduleData }) => {
             <div className="bg-gray-700 p-3 rounded">
               <p className="text-sm text-gray-400">Preferred Days</p>
               <p className="text-white">
-                {preferences.preferred_days?.join(', ') || 'No day preferences'}
+                {Array.isArray(preferences.pref_no_days) &&
+                preferences.pref_no_days.length > 0
+                  ? preferences.pref_no_days.join(', ')
+                  : 'No day preferences'}
               </p>
             </div>
 
             {/* Professor Preferences */}
-            {preferences.preferred_professors && preferences.preferred_professors.length > 0 && (
-              <div className="bg-gray-700 p-3 rounded">
-                <p className="text-sm text-gray-400">Preferred Professors</p>
-                <p className="text-white">
-                  {preferences.preferred_professors.join(', ')}
-                </p>
-              </div>
-            )}
+            {Array.isArray(preferences.pref_instructors) &&
+              preferences.pref_instructors.length > 0 && (
+                <div className="bg-gray-700 p-3 rounded">
+                  <p className="text-sm text-gray-400">Preferred Professors</p>
+                  <p className="text-white">
+                    {preferences.pref_instructors.join(', ')}
+                  </p>
+                </div>
+              )}
 
             {/* Course Preferences */}
-            {preferences.preferred_courses && preferences.preferred_courses.length > 0 && (
-              <div className="bg-gray-700 p-3 rounded">
-                <p className="text-sm text-gray-400">Preferred Courses</p>
-                <p className="text-white">
-                  {preferences.preferred_courses.join(', ')}
-                </p>
-              </div>
-            )}
+            {Array.isArray(preferences.pref_buildings) &&
+              preferences.pref_buildings.length > 0 && (
+                <div className="bg-gray-700 p-3 rounded">
+                  <p className="text-sm text-gray-400">Preferred Buildings</p>
+                  <p className="text-white">
+                    {preferences.pref_buildings.join(', ')}
+                  </p>
+                </div>
+              )}
 
             {/* Other Preferences */}
-            {preferences.other_preferences && (
+            {preferences.tech_breadth && (
               <div className="bg-gray-700 p-3 rounded">
-                <p className="text-sm text-gray-400">Additional Preferences</p>
-                <p className="text-white">
-                  {preferences.other_preferences}
-                </p>
+                <p className="text-sm text-gray-400">Tech Breadth</p>
+                <p className="text-white">{preferences.tech_breadth}</p>
               </div>
             )}
           </div>
@@ -363,15 +465,15 @@ const ScheduleSummary = ({ scheduleData }) => {
 
 export const WeeklyCalendar = ({ courses }) => {
   /* ───────── constants ───────── */
-  const days      = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]; // display order
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]; // display order
   const timeSlots = [
     "8:00 AM","8:30 AM","9:00 AM","9:30 AM","10:00 AM","10:30 AM","11:00 AM","11:30 AM",
     "12:00 PM","12:30 PM","1:00 PM","1:30 PM","2:00 PM","2:30 PM","3:00 PM","3:30 PM",
     "4:00 PM","4:30 PM","5:00 PM"
   ];
 
-  const DAY_LABEL_WIDTH = 96;  // px (Tailwind w‑24 ⇒ 6rem)
-  const ROW_HEIGHT      = 40;  // px (min‑h‑[40px]) – each slot is 30 min
+  const DAY_LABEL_WIDTH = 96;  // px (Tailwind w-24 ⇒ 6rem)
+  const ROW_HEIGHT      = 40;  // px (min-h-[40px]) – each slot is 30 min
 
   /* ───────── helpers ───────── */
   const timeToMinutes = (t) => {
@@ -418,7 +520,7 @@ export const WeeklyCalendar = ({ courses }) => {
   };
 
   /**
-   * Flatten ‑> array of { name, label, start, end, building, room } for that day
+   * Flatten -> array of { name, label, start, end, building, room } for that day
    */
   const sessionsForDay = (day) =>
     Object.entries(courses).flatMap(([name, data]) => {
@@ -427,8 +529,9 @@ export const WeeklyCalendar = ({ courses }) => {
       return [
         { label: "Lecture",    info: lecture.times?.[0]    },
         { label: "Discussion", info: discussion.times?.[0] }
-      ].filter(({ info }) => info && occursOn(info, day))
-       .map(({ label, info }) => ({ name, label, ...info }));
+      ]
+        .filter(({ info }) => info && occursOn(info, day))
+        .map(({ label, info }) => ({ name, label, ...info }));
     });
 
   /* ───────── render ───────── */
@@ -450,7 +553,9 @@ export const WeeklyCalendar = ({ courses }) => {
               <div
                 key={d}
                 className="text-center"
-                style={{ width: `calc((100% - ${DAY_LABEL_WIDTH}px)/5)` }}
+                style={{
+                  width: `calc((100% - ${DAY_LABEL_WIDTH}px)/5)`
+                }}
               >
                 <h3 className="text-lg font-semibold text-blue-400">{d}</h3>
               </div>
@@ -460,7 +565,11 @@ export const WeeklyCalendar = ({ courses }) => {
           {/* time grid */}
           <div className="relative">
             {timeSlots.map((t) => (
-              <div key={t} className="grid grid-cols-6" style={{ minHeight: ROW_HEIGHT }}>
+              <div
+                key={t}
+                className="grid grid-cols-6"
+                style={{ minHeight: ROW_HEIGHT }}
+              >
                 {/* time label */}
                 <div
                   className="flex items-center justify-end pr-4 border-b border-gray-600"
@@ -473,7 +582,9 @@ export const WeeklyCalendar = ({ courses }) => {
                   <div
                     key={`${d}-${t}`}
                     className="border-b border-gray-600"
-                    style={{ width: `calc((100% - ${DAY_LABEL_WIDTH}px)/5)` }}
+                    style={{
+                      width: `calc((100% - ${DAY_LABEL_WIDTH}px)/5)`
+                    }}
                   ></div>
                 ))}
               </div>
@@ -483,13 +594,17 @@ export const WeeklyCalendar = ({ courses }) => {
             {days.flatMap((day, colIdx) => {
               const blocks = sessionsForDay(day);
               const overlaps = findOverlappingCourses(day);
-              
+
               return blocks.map((blk) => {
                 const startM = timeToMinutes(blk.start);
-                const endM   = timeToMinutes(blk.end);
-                const top    = ((startM - 480) / 30) * ROW_HEIGHT; // 480 = 8*60
-                const height = Math.max((endM - startM) / 30 * ROW_HEIGHT, ROW_HEIGHT);
-                const overlapCount = overlaps.get(`${blk.name}-${blk.label}`)?.size || 0;
+                const endM = timeToMinutes(blk.end);
+                const top = ((startM - 480) / 30) * ROW_HEIGHT; // 480 = 8*60
+                const height = Math.max(
+                  ((endM - startM) / 30) * ROW_HEIGHT,
+                  ROW_HEIGHT
+                );
+                const overlapCount =
+                  overlaps.get(`${blk.name}-${blk.label}`)?.size || 0;
 
                 return (
                   <motion.div
@@ -551,11 +666,11 @@ export const HomePage = () => {
 
   useEffect(() => {
     console.log("HomePage component mounted");
-    
+
     const loadScheduleData = () => {
       console.log("Starting to load schedule data from localStorage...");
       const storedSchedule = localStorage.getItem('scheduleData');
-      
+
       if (!storedSchedule) {
         console.log("No schedule data found in localStorage");
         setLoading(false);
@@ -567,42 +682,55 @@ export const HomePage = () => {
       try {
         const data = JSON.parse(storedSchedule);
         console.log("Successfully parsed schedule data:", data);
-        
+
         if (!data.schedule || !data.schedule.schedule) {
-          console.error("Schedule data is missing the 'schedule' property:", data);
+          console.error(
+            "Schedule data is missing the 'schedule' property:",
+            data
+          );
           setLoading(false);
           return;
         }
 
-        // Get the actual schedule data from the nested structure
+        // Pull least_courses_per_term from data.preferences (not data.schedule.preferences)
+        if (
+          data.preferences &&
+          typeof data.preferences.least_courses_per_term === 'number'
+        ) {
+          setLeastCoursesPerTerm(data.preferences.least_courses_per_term);
+        }
+
+        // Get the actual schedule object
         const actualSchedule = data.schedule.schedule;
         console.log("Actual schedule data:", actualSchedule);
-
-        // Get least_courses_per_term from preferences if available
-        if (data.schedule.preferences && data.schedule.preferences.least_courses_per_term) {
-          setLeastCoursesPerTerm(data.schedule.preferences.least_courses_per_term);
-        }
 
         // Validate and clean the schedule data
         const cleanedSchedule = {};
         Object.entries(actualSchedule).forEach(([quarter, courses]) => {
           // Skip if courses is not an object or array
-          if (!courses || (typeof courses !== 'object' && !Array.isArray(courses))) {
+          if (
+            !courses ||
+            (typeof courses !== 'object' && !Array.isArray(courses))
+          ) {
             console.warn(`Invalid courses data for quarter ${quarter}:`, courses);
             return;
           }
 
           // If it's an array, filter out invalid entries and FILLER
           if (Array.isArray(courses)) {
-            const validCourses = courses.filter(course => 
-              course && typeof course === 'string' && course.trim() !== '' && course !== 'FILLER'
+            const validCourses = courses.filter(
+              (course) =>
+                course &&
+                typeof course === 'string' &&
+                course.trim() !== '' &&
+                course !== 'FILLER'
             );
-            
-            // // Add filler courses if needed
-            // while (validCourses.length < leastCoursesPerTerm) {
-            //   validCourses.push('FILLER');
-            // }
-            
+
+            // Add filler courses if needed
+            while (validCourses.length < leastCoursesPerTerm) {
+              validCourses.push('FILLER');
+            }
+
             cleanedSchedule[quarter] = validCourses;
           } else {
             // If it's an object, keep only valid course data
@@ -612,10 +740,14 @@ export const HomePage = () => {
                 cleanedSchedule[quarter][courseId] = courseData;
               }
             });
-            
+
             // Add filler courses if needed
-            while (Object.keys(cleanedSchedule[quarter]).length < leastCoursesPerTerm) {
-              const fillerId = `FILLER_${Object.keys(cleanedSchedule[quarter]).length + 1}`;
+            while (
+              Object.keys(cleanedSchedule[quarter]).length < leastCoursesPerTerm
+            ) {
+              const fillerId = `FILLER_${
+                Object.keys(cleanedSchedule[quarter]).length + 1
+              }`;
               cleanedSchedule[quarter][fillerId] = 'FILLER';
             }
           }
@@ -630,7 +762,7 @@ export const HomePage = () => {
           const unscheduled = data.schedule.note
             .replace('Unable to schedule: ', '')
             .split('; ')
-            .map(course => course.trim());
+            .map((course) => course.trim());
           console.log("Parsed unscheduled courses:", unscheduled);
           setUnscheduledCourses(unscheduled);
         }
@@ -656,9 +788,52 @@ export const HomePage = () => {
       try {
         const data = JSON.parse(storedSchedule);
         console.log("Reloaded schedule data:", data);
-        setScheduleData(data.schedule.schedule);
-        if (data.schedule.note) {
-          const unscheduled = data.schedule.note.replace('Unable to schedule: ', '').split(', ');
+
+        // Mirror the same loading logic: clean and set
+        if (data.schedule && data.schedule.schedule) {
+          const actualSchedule = data.schedule.schedule;
+          const cleanedSchedule = {};
+          Object.entries(actualSchedule).forEach(([quarter, courses]) => {
+            if (
+              !courses ||
+              (typeof courses !== 'object' && !Array.isArray(courses))
+            ) {
+              return;
+            }
+            if (Array.isArray(courses)) {
+              const validCourses = courses.filter(
+                (c) =>
+                  c && typeof c === 'string' && c.trim() !== '' && c !== 'FILLER'
+              );
+              while (validCourses.length < leastCoursesPerTerm) {
+                validCourses.push('FILLER');
+              }
+              cleanedSchedule[quarter] = validCourses;
+            } else {
+              cleanedSchedule[quarter] = {};
+              Object.entries(courses).forEach(([courseId, courseData]) => {
+                if (courseData && typeof courseData === 'object') {
+                  cleanedSchedule[quarter][courseId] = courseData;
+                }
+              });
+              while (
+                Object.keys(cleanedSchedule[quarter]).length <
+                leastCoursesPerTerm
+              ) {
+                const fillerId = `FILLER_${
+                  Object.keys(cleanedSchedule[quarter]).length + 1
+                }`;
+                cleanedSchedule[quarter][fillerId] = 'FILLER';
+              }
+            }
+          });
+          setScheduleData(cleanedSchedule);
+        }
+
+        if (data.schedule && data.schedule.note) {
+          const unscheduled = data.schedule.note
+            .replace('Unable to schedule: ', '')
+            .split(', ');
           setUnscheduledCourses(unscheduled);
         }
       } catch (error) {
@@ -693,22 +868,24 @@ export const HomePage = () => {
   }
 
   if (!scheduleData) {
-  return (
+    return (
       <div className="bg-gray-900 min-h-screen min-w-screen text-white flex flex-col items-center pt-10">
         <div className="max-w-7xl mx-auto">
-      <motion.h1
+          <motion.h1
             className="text-3xl font-bold mb-8"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
             Your Schedule
-      </motion.h1>
-        <motion.div
+          </motion.h1>
+          <motion.div
             className="bg-gray-700 rounded-lg shadow-md p-6"
-          initial={{ opacity: 0 }}
+            initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            <p className="text-gray-400 mb-4">No schedule data available. Please generate a schedule first.</p>
+            <p className="text-gray-400 mb-4">
+              No schedule data available. Please generate a schedule first.
+            </p>
             <motion.button
               onClick={() => navigate('/form')}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -743,7 +920,7 @@ export const HomePage = () => {
             >
               Reload Schedule
             </motion.button>
-            <motion.button 
+            <motion.button
               onClick={onSignOut}
               className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
               whileHover={{ scale: 1.05 }}
@@ -753,11 +930,11 @@ export const HomePage = () => {
             </motion.button>
           </div>
         </div>
-        
+
         {/* Schedule Summary */}
         <ScheduleSummary scheduleData={scheduleData} />
 
-        {/* Weekly Calendar - only show for first term */}
+        {/* Weekly Calendar (for first term only) */}
         {scheduleData && Object.entries(scheduleData)[0] && (
           <WeeklyCalendar courses={Object.entries(scheduleData)[0][1]} />
         )}
@@ -766,7 +943,7 @@ export const HomePage = () => {
         {Object.entries(scheduleData)
           .filter(([_, courses]) => {
             if (Array.isArray(courses)) {
-              return courses.length > 0 && courses[0] !== 'FILLER';
+              return courses.length > 0;
             }
             return Object.keys(courses).length > 0;
           })
@@ -781,12 +958,14 @@ export const HomePage = () => {
 
         {/* Unscheduled Courses */}
         {unscheduledCourses.length > 0 && (
-          <motion.div 
+          <motion.div
             className="mt-8 bg-gray-700 rounded-lg shadow-md p-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <h2 className="text-2xl font-bold text-white mb-4">Unscheduled Courses</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">
+              Unscheduled Courses
+            </h2>
             <p className="text-gray-400 mb-4">
               The following courses could not be scheduled:
             </p>
@@ -794,20 +973,20 @@ export const HomePage = () => {
               {unscheduledCourses.map((course, idx) => {
                 // Parse the course and its reason
                 const [courseCode, reason] = course.split(' (');
-                const cleanReason = reason ? reason.slice(0, -1) : 'No reason provided';
-                
+                const cleanReason = reason
+                  ? reason.slice(0, -1)
+                  : 'No reason provided';
+
                 return (
-                  <motion.div 
-                    key={idx} 
+                  <motion.div
+                    key={idx}
                     className="bg-gray-800 rounded p-4"
                     whileHover={{ scale: 1.05 }}
                   >
                     <h3 className="text-lg font-semibold text-blue-400 mb-2">
                       {cleanCourseName(courseCode)}
                     </h3>
-                    <p className="text-gray-300 text-sm">
-                      {cleanReason}
-                    </p>
+                    <p className="text-gray-300 text-sm">{cleanReason}</p>
                   </motion.div>
                 );
               })}
@@ -832,7 +1011,7 @@ export const HomePage = () => {
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
-              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 01-2 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
             />
           </svg>
         </button>
@@ -848,7 +1027,9 @@ export const HomePage = () => {
             <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-900 rounded-t-lg">
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                <h3 className="text-lg font-semibold text-white">AI Planning Assistant</h3>
+                <h3 className="text-lg font-semibold text-white">
+                  AI Planning Assistant
+                </h3>
               </div>
               <div className="flex items-center space-x-2">
                 <button
@@ -894,7 +1075,7 @@ export const HomePage = () => {
               </div>
             </div>
             <div className="h-[calc(100%-4rem)] overflow-hidden">
-              <Chatbox />
+              <Chatbox scheduleData={scheduleData} />
             </div>
           </motion.div>
         )}

@@ -29,13 +29,13 @@ export const validateQueryInput = (req, res, next) => {
 };
 
 export const processQuery = async (req, res) => {
-  const { question, chatHistory = [] } = req.body;
+  const { question, chatHistory = [], scheduleData } = req.body;
   console.log("Received query:", { question, chatHistory });
 
   try {
-    // Fetch user's schedule
-    let userSchedule = null;
-    if (req.user && req.user.id) {
+    // Use schedule data from client if available, otherwise fetch from database
+    let userSchedule = scheduleData;
+    if (!userSchedule && req.user && req.user.id) {
       const { data: scheduleData, error: scheduleError } = await supabase
         .from("schedules")
         .select("schedule")
