@@ -51,13 +51,19 @@ const classes = {
   ]
 };
 
-const FormModal = ({ children, handleClick, handleBackClick, validate }) => {
+const FormModal = ({
+  children,
+  handleClick,
+  handleBackClick,
+  validate,
+  showNextArrow = true
+}) => {
   const [isInvalid, setIsInvalid] = useState(false);
 
   return (
     <motion.div
-      className="bg-gray-100 rounded-xl  border border-gray-700"
-      style={{ width: '50%', 'paddingTop': '2%', 'paddingBottom': '2%' }}
+      className="bg-gray-100 rounded-xl border border-gray-700"
+      style={{ width: '50%', paddingTop: '2%', paddingBottom: '2%' }}
       whileHover={{ scale: 0.95, opacity: 1 }}
       initial={{ opacity: 0, scale: 0 }}
       animate={{ opacity: 0.75, scale: 1 }}
@@ -65,7 +71,11 @@ const FormModal = ({ children, handleClick, handleBackClick, validate }) => {
     >
       <div className="text-black flex flex-col items-center p-8 mt-5 space-y-4">
         {children}
-        { isInvalid && <span className="text-red-800 mb-5 font-bold">Make sure to complete all required fields.</span> }
+        {isInvalid && (
+          <span className="text-red-800 mb-5 font-bold">
+            Make sure to complete all required fields.
+          </span>
+        )}
         <div className="flex flex-row">
           {handleBackClick != null ? (
             <button
@@ -74,16 +84,20 @@ const FormModal = ({ children, handleClick, handleBackClick, validate }) => {
             >
               <ArrowLeftCircle size={30} />
             </button>
-          ) : (
-            <></>
-          )}
+          ) : null}
           <div className="flex flex-col">
-            <button
-              onClick={validate ? () => (validate() ? handleClick() : setIsInvalid(true)) : handleClick}
-              className=" text-black inline-block mt-1 hover:text-blue-500"
-            >
-              <ArrowRightCircle size={30} />
-            </button>
+            {showNextArrow && (
+              <button
+                onClick={
+                  validate
+                    ? () => (validate() ? handleClick() : setIsInvalid(true))
+                    : handleClick
+                }
+                className="text-black inline-block mt-1 hover:text-blue-500"
+              >
+                <ArrowRightCircle size={30} />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -190,8 +204,8 @@ const MajorAutocomplete = ({ school, major, setMajor, setMajorName }) => {
         return res.json();
       })
       .then(schools => {
-        const schoolIndex = schools.findIndex(s => 
-          s.toLowerCase() === school.toLowerCase()
+        const schoolIndex = schools.findIndex(
+          s => s.toLowerCase() === school.toLowerCase()
         );
         if (schoolIndex !== -1) {
           setSchoolId(schoolIndex + 1);
@@ -217,7 +231,9 @@ const MajorAutocomplete = ({ school, major, setMajor, setMajorName }) => {
       .catch(() => setOptions([]));
   }, [schoolId]);
 
-  const filtered = options.filter(opt => opt.full_name.toLowerCase().includes(query.toLowerCase()));
+  const filtered = options.filter(opt =>
+    opt.full_name.toLowerCase().includes(query.toLowerCase())
+  );
 
   return (
     <div className="relative w-full">
@@ -231,7 +247,7 @@ const MajorAutocomplete = ({ school, major, setMajor, setMajorName }) => {
         }}
         onFocus={() => setShowDropdown(true)}
         onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
-        className="border rounded p-1 w-full bg-gray-100"
+        className="border rounded p-2 w-full"
         placeholder="Search majors..."
       />
       {showDropdown && filtered.length > 0 && (
@@ -277,16 +293,16 @@ const InfoDetail = ({
   const [secondSchool, setSecondSchool] = useState('');
   const [techBreadthError, setTechBreadthError] = useState('');
 
-  const showDbMajor = (visible) => {
-    setWantsDbMajor(visible == 'Yep');
-    setDbMajorSelect(visible == 'Yep');
+  const showDbMajor = visible => {
+    setWantsDbMajor(visible === 'Yep');
+    setDbMajorSelect(visible === 'Yep');
   };
 
-  const isEngineeringSchool = (schoolName) => {
+  const isEngineeringSchool = schoolName => {
     return schoolName === 'Engineering';
   };
 
-  const getTechBreadthOptions = (majorName) => {
+  const getTechBreadthOptions = majorName => {
     const allOptions = [
       'Bioengineering',
       'Chemical & Biomolecular Engineering',
@@ -307,19 +323,44 @@ const InfoDetail = ({
     ];
 
     // Special case for Computer Engineering and CSE majors
-    if (majorName === 'Computer Engineering' || majorName === 'Computer Science and Engineering') {
+    if (
+      majorName === 'Computer Engineering' ||
+      majorName === 'Computer Science and Engineering'
+    ) {
       return allOptions;
     }
 
     // Filter out the major's own department
     return allOptions.filter(option => {
-      if (majorName === 'Bioengineering' && option === 'Bioengineering') return false;
-      if (majorName === 'Chemical Engineering' && option === 'Chemical & Biomolecular Engineering') return false;
-      if (majorName === 'Civil Engineering' && option === 'Civil & Environmental Engineering') return false;
-      if (majorName === 'Computer Science' && option === 'Computer Science') return false;
-      if (majorName === 'Electrical Engineering' && option === 'Electrical & Computer Engineering') return false;
-      if (majorName === 'Materials Science' && option === 'Materials Science & Engineering') return false;
-      if (majorName === 'Mechanical Engineering' && option === 'Mechanical & Aerospace Engineering') return false;
+      if (majorName === 'Bioengineering' && option === 'Bioengineering')
+        return false;
+      if (
+        majorName === 'Chemical Engineering' &&
+        option === 'Chemical & Biomolecular Engineering'
+      )
+        return false;
+      if (
+        majorName === 'Civil Engineering' &&
+        option === 'Civil & Environmental Engineering'
+      )
+        return false;
+      if (majorName === 'Computer Science' && option === 'Computer Science')
+        return false;
+      if (
+        majorName === 'Electrical Engineering' &&
+        option === 'Electrical & Computer Engineering'
+      )
+        return false;
+      if (
+        majorName === 'Materials Science' &&
+        option === 'Materials Science & Engineering'
+      )
+        return false;
+      if (
+        majorName === 'Mechanical Engineering' &&
+        option === 'Mechanical & Aerospace Engineering'
+      )
+        return false;
       return true;
     });
   };
@@ -330,7 +371,9 @@ const InfoDetail = ({
       return false;
     }
     if (isEngineeringSchool(secondSchool) && !secondTechBreadth) {
-      setTechBreadthError('Please select a technical breadth area for your second major');
+      setTechBreadthError(
+        'Please select a technical breadth area for your second major'
+      );
       return false;
     }
     setTechBreadthError('');
@@ -339,17 +382,23 @@ const InfoDetail = ({
 
   return (
     <FormModal
-      handleClick={() => validateTechBreadth() && handleNextClick()}
+      handleClick={() =>
+        validateTechBreadth() && handleNextClick()
+      }
       handleBackClick={handleBackClick}
-      back={true}
       validate={validate}
     >
       <p className="text-4xl font-bold mb-4">Tell us more!</p>
       <br />
-      <div className="flex flex-row justify-center items-center">
+      <div className="flex flex-row justify-center items-center mt-4">
         <label className="text-xl mr-5">Major:</label>
         <div className="flex-1">
-          <MajorAutocomplete school={school} major={major} setMajor={setMajor} setMajorName={setMajorName} />
+          <MajorAutocomplete
+            school={school}
+            major={major}
+            setMajor={setMajor}
+            setMajorName={setMajorName}
+          />
         </div>
       </div>
       {isEngineeringSchool(school) && (
@@ -370,7 +419,9 @@ const InfoDetail = ({
         <Dropdown
           options={['Yep', 'No, thanks']}
           onSelect={showDbMajor}
-          defaultOption={wantsDbMajor != null ? (wantsDbMajor ? 'Yep' : 'No, thanks') : undefined}
+          defaultOption={
+            wantsDbMajor != null ? (wantsDbMajor ? 'Yep' : 'No, thanks') : undefined
+          }
         />
       </div>
       {dbMajorSelect && (
@@ -378,7 +429,16 @@ const InfoDetail = ({
           <div className="flex flex-row justify-center items-center">
             <label className="text-xl mr-5">Second School:</label>
             <Dropdown
-              options={['Arts & Architecture', 'The College', 'Education & Information Studies', 'Engineering', 'Music', 'Nursing', 'Public Affairs', 'Theater, Film & Television']}
+              options={[
+                'Arts & Architecture',
+                'The College',
+                'Education & Information Studies',
+                'Engineering',
+                'Music',
+                'Nursing',
+                'Public Affairs',
+                'Theater, Film & Television'
+              ]}
               onSelect={setSecondSchool}
               defaultOption={secondSchool}
             />
@@ -386,12 +446,19 @@ const InfoDetail = ({
           <div className="flex flex-row justify-center items-center">
             <label className="text-xl mr-5">Second Major:</label>
             <div className="flex-1">
-              <MajorAutocomplete school={secondSchool} major={doubleMajor} setMajor={setDoubleMajor} setMajorName={setDoubleMajorName} />
+              <MajorAutocomplete
+                school={secondSchool}
+                major={doubleMajor}
+                setMajor={setDoubleMajor}
+                setMajorName={setDoubleMajorName}
+              />
             </div>
           </div>
           {isEngineeringSchool(secondSchool) && (
             <div className="flex flex-row justify-center items-center mt-4">
-              <label className="text-xl mr-5">Second Major Technical Breadth Area:</label>
+              <label className="text-xl mr-5">
+                Second Major Technical Breadth Area:
+              </label>
               <div className="flex-1">
                 <Dropdown
                   options={getTechBreadthOptions(doubleMajor)}
@@ -405,7 +472,9 @@ const InfoDetail = ({
         </>
       )}
       {techBreadthError && (
-        <div className="text-red-600 font-semibold mt-4">{techBreadthError}</div>
+        <div className="text-red-600 font-semibold mt-4">
+          {techBreadthError}
+        </div>
       )}
     </FormModal>
   );
@@ -424,7 +493,7 @@ const SchedulePreferences = ({
   handleBackClick = () => {},
   validate = () => {}
 }) => {
-  const toggleDay = (day) => {
+  const toggleDay = day => {
     if (prefNoDays.includes(day)) {
       setPrefNoDays(prefNoDays.filter(d => d !== day));
     } else {
@@ -442,7 +511,11 @@ const SchedulePreferences = ({
               <button
                 key={idx}
                 type="button"
-                className={`px-3 py-1 rounded-lg border transition ${prefNoDays.includes(day) ? 'bg-gray-900 text-white border-gray-900' : 'bg-gray-100 text-black border-gray-300'}`}
+                className={`px-3 py-1 rounded-lg border transition ${
+                  prefNoDays.includes(day)
+                    ? 'bg-blue-600 text-black border-blue-700 ring-2 ring-blue-400'
+                    : 'bg-gray-100 text-black border-gray-300'
+                }`}
                 onClick={() => toggleDay(day)}
               >
                 {day}
@@ -472,7 +545,7 @@ const SchedulePreferences = ({
         />
       </div>
     </FormModal>
-  )
+  );
 };
 
 const InstructorAutocomplete = ({ selected, setSelected }) => {
@@ -481,13 +554,15 @@ const InstructorAutocomplete = ({ selected, setSelected }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const timeoutRef = useRef();
 
-  const fetchInstructors = async (q) => {
+  const fetchInstructors = async q => {
     if (!q) {
       setResults([]);
       return;
     }
     try {
-      const res = await fetch(`http://localhost:3000/instructors/search?q=${encodeURIComponent(q)}`);
+      const res = await fetch(
+        `http://localhost:3000/instructors/search?q=${encodeURIComponent(q)}`
+      );
       const data = await res.json();
       setResults(data.filter(name => !selected.includes(name)));
     } catch (e) {
@@ -495,7 +570,7 @@ const InstructorAutocomplete = ({ selected, setSelected }) => {
     }
   };
 
-  const onChange = (e) => {
+  const onChange = e => {
     const val = e.target.value;
     setQuery(val);
     clearTimeout(timeoutRef.current);
@@ -503,14 +578,14 @@ const InstructorAutocomplete = ({ selected, setSelected }) => {
     setShowDropdown(true);
   };
 
-  const onSelect = (name) => {
+  const onSelect = name => {
     setSelected([...selected, name]);
     setQuery('');
     setResults([]);
     setShowDropdown(false);
   };
 
-  const onRemove = (name) => {
+  const onRemove = name => {
     setSelected(selected.filter(n => n !== name));
   };
 
@@ -520,7 +595,9 @@ const InstructorAutocomplete = ({ selected, setSelected }) => {
         {selected.map(name => (
           <span key={name} className="bg-blue-900 text-white px-2 py-1 rounded">
             {name}
-            <button onClick={() => onRemove(name)} className="ml-1 text-white">&times;</button>
+            <button onClick={() => onRemove(name)} className="ml-1 text-white">
+              &times;
+            </button>
           </span>
         ))}
       </div>
@@ -596,9 +673,7 @@ const PreferencesStep = ({
             className="border rounded p-1 w-24"
           />
         </div>
-        {errorMsg && (
-          <div className="text-red-600 font-semibold">{errorMsg}</div>
-        )}
+        {errorMsg && <div className="text-red-600 font-semibold">{errorMsg}</div>}
         <div className="flex flex-row items-center gap-4">
           <label className="text-xl w-64">Preferred instructors:</label>
           <div className="flex-1">
@@ -610,7 +685,14 @@ const PreferencesStep = ({
           <input
             type="text"
             value={prefBuildings.join(', ')}
-            onChange={e => setPrefBuildings(e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+            onChange={e =>
+              setPrefBuildings(
+                e.target.value
+                  .split(',')
+                  .map(s => s.trim())
+                  .filter(Boolean)
+              )
+            }
             className="border rounded p-1 flex-1"
             placeholder="e.g. MS, SCI"
           />
@@ -635,9 +717,9 @@ const AdvancedPreferencesStep = ({
   // Drag and drop logic
   const [draggedIdx, setDraggedIdx] = useState(null);
 
-  const onDragStart = (idx) => setDraggedIdx(idx);
-  const onDragOver = (e) => e.preventDefault();
-  const onDrop = (idx) => {
+  const onDragStart = idx => setDraggedIdx(idx);
+  const onDragOver = e => e.preventDefault();
+  const onDrop = idx => {
     if (draggedIdx === null || draggedIdx === idx) return;
     const newOrder = [...prefPriority];
     const [removed] = newOrder.splice(draggedIdx, 1);
@@ -685,7 +767,9 @@ const AdvancedPreferencesStep = ({
               onDragStart={() => onDragStart(idx)}
               onDragOver={onDragOver}
               onDrop={() => onDrop(idx)}
-              className={`flex items-center gap-2 px-4 py-2 rounded shadow cursor-move bg-gray-100 border border-gray-300 ${draggedIdx === idx ? 'opacity-50' : ''}`}
+              className={`flex items-center gap-2 px-4 py-2 rounded shadow cursor-move bg-gray-100 border border-gray-300 ${
+                draggedIdx === idx ? 'opacity-50' : ''
+              }`}
               style={{ userSelect: 'none' }}
             >
               <span className="w-32 capitalize">{item}</span>
@@ -702,14 +786,14 @@ const ClassSelect = ({
   defaultDept = 'COM SCI',
   columns = 4,
   handleNextClick = () => {},
-  handleBackClick = () => {},
+  handleBackClick = () => {}
 }) => {
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [dept, setDept] = useState(defaultDept);
   const [myClasses, setMyClasses] = useState([]);
 
-  const toggleItem = (item) => {
-    setSelectedItems((prev) => {
+  const toggleItem = item => {
+    setSelectedItems(prev => {
       const newSelection = new Set(prev);
       if (newSelection.has(item)) {
         newSelection.delete(item);
@@ -721,18 +805,20 @@ const ClassSelect = ({
   };
 
   useEffect(() => {
-    console.log("testing");
-    fetch("http://localhost:3000/get_courses", {
-      method: "POST",
+    console.log('testing');
+    fetch('http://localhost:3000/get_courses', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json"
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        "majorName": "ComputerScienceBS"
-      }),
-    }).then(res => res.json()).then((res) => {
-      setMyClasses(res);
-    });
+        majorName: 'ComputerScienceBS'
+      })
+    })
+      .then(res => res.json())
+      .then(res => {
+        setMyClasses(res);
+      });
   }, []);
 
   console.log(myClasses);
@@ -752,21 +838,22 @@ const ClassSelect = ({
             className={`grid gap-2`}
             style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
           >
-            {(dept == 'My Major' ? myClasses : dept != 'ALL' ? classes[dept] : Object.values(classes).flat()).map(
-              (item, index) => (
-                <div
-                  key={index}
-                  className={`pl-4 pr-4 pt-2 pb-2 border rounded-lg text-center cursor-pointer transition ${
-                    selectedItems.has(item)
-                      ? 'bg-blue-900 text-white'
-                      : 'bg-gray-100'
-                  }`}
-                  onClick={() => toggleItem(item)}
-                >
-                  {item}
-                </div>
-              )
-            )}
+            {(dept == 'My Major'
+              ? myClasses
+              : dept != 'ALL'
+              ? classes[dept]
+              : Object.values(classes).flat()
+            ).map((item, index) => (
+              <div
+                key={index}
+                className={`pl-4 pr-4 pt-2 pb-2 border rounded-lg text-center cursor-pointer transition ${
+                  selectedItems.has(item) ? 'bg-blue-900 text-white' : 'bg-gray-100'
+                }`}
+                onClick={() => toggleItem(item)}
+              >
+                {item}
+              </div>
+            ))}
           </div>
         </div>
         <div className="mt-4 p-2 border rounded">
@@ -778,17 +865,13 @@ const ClassSelect = ({
   );
 };
 
-const SummaryView = ({
-  data = {},
-  handleBackClick = () => {},
-  setStep = () => {},
-}) => {
+const SummaryView = ({ data = {}, handleBackClick = () => {}, setStep = () => {} }) => {
   const { session } = useAuth();
   const navigate = useNavigate();
 
   const handleCreateProfile = async () => {
-    console.log("hello world")
-    console.log(session)
+    console.log('hello world');
+    console.log(session);
     if (!session || !session.user) {
       return;
     }
@@ -797,9 +880,9 @@ const SummaryView = ({
       {
         profile_id: session.user.id,
         complete: true,
-        full_name: "hi",
-        created_at: "hi"
-      },
+        full_name: 'hi',
+        created_at: 'hi'
+      }
     ]);
 
     if (error) {
@@ -811,107 +894,122 @@ const SummaryView = ({
 
   const handleGenerateSchedule = async () => {
     try {
-      console.log("Starting schedule generation...");
-      console.log("Current session:", session); // Debug log
-      
+      console.log('Starting schedule generation...');
+      console.log('Current session:', session); // Debug log
+
       // Get selected majors
       const selectedMajors = [data.majorName];
       if (data.doubleMajorName) {
         selectedMajors.push(data.doubleMajorName);
       }
-      console.log("Selected majors:", selectedMajors);
+      console.log('Selected majors:', selectedMajors);
 
       // Check for session
       if (!session || !session.access_token) {
-        console.error("No active session found");
+        console.error('No active session found');
         // Redirect to login if no session
         navigate('/');
         return;
       }
-      console.log("Got session:", session);
+      console.log('Got session:', session);
 
       // Fetch major requisites from Supabase
-      console.log("Fetching major requisites...");
+      console.log('Fetching major requisites...');
       const { data: majorRequisites, error: supabaseError } = await supabase
         .from('major_requisites')
         .select('json_data')
         .in('major_name', selectedMajors);
 
       if (supabaseError) {
-        console.error("Error fetching major requisites:", supabaseError);
+        console.error('Error fetching major requisites:', supabaseError);
         return;
       }
 
       if (!majorRequisites || majorRequisites.length === 0) {
-        console.log("No major requisites found for selected majors:", selectedMajors);
+        console.log(
+          'No major requisites found for selected majors:',
+          selectedMajors
+        );
         return;
       }
 
-      console.log("Raw JSON data from Supabase:", JSON.stringify(majorRequisites, null, 2));
+      console.log(
+        'Raw JSON data from Supabase:',
+        JSON.stringify(majorRequisites, null, 2)
+      );
 
       // Process the JSON data from each major
       const processedRequirements = majorRequisites.map(req => {
-        console.log("Processing requirement:", JSON.stringify(req.json_data, null, 2));
+        console.log(
+          'Processing requirement:',
+          JSON.stringify(req.json_data, null, 2)
+        );
         return req.json_data;
       });
-      console.log("Processed requirements:", JSON.stringify(processedRequirements, null, 2));
+      console.log(
+        'Processed requirements:',
+        JSON.stringify(processedRequirements, null, 2)
+      );
 
       // Convert transcript object to array of course IDs
       const completedCourses = Object.keys(data.transcript || {}).map(course => {
         // Convert from "COM SCI|31" format to "COM SCI 31" format
         return course.replace('|', ' ');
       });
-      console.log("Completed courses:", completedCourses);
+      console.log('Completed courses:', completedCourses);
 
-      console.log("Calling get-courses-to-schedule endpoint...");
+      console.log('Calling get-courses-to-schedule endpoint...');
       // Call the get-courses-to-schedule endpoint
-      const response = await fetch('http://localhost:3000/courses/get-courses-to-schedule', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ 
-          jsonData: processedRequirements,
-          transcript: completedCourses,
-          grad_year: data.gradYear,
-          grad_quarter: data.gradQuarter,
-          preferences: {
-            allow_warnings: data.allowWarnings,
-            allow_primary_conflicts: data.allowPrimaryConflicts,
-            allow_secondary_conflicts: data.allowSecondaryConflicts,
-            pref_priority: data.prefPriority,
-            pref_earliest: data.earliestClassTime,
-            pref_latest: data.latestClassTime,
-            pref_no_days: data.prefNoDays,
-            pref_buildings: data.prefBuildings,
-            pref_instructors: data.prefInstructors,
-            max_courses_per_term: data.maxCoursesPerTerm,
-            least_courses_per_term: data.leastCoursesPerTerm,
-            tech_breadth: data.techBreadth,
-            second_tech_breadth: data.secondTechBreadth
-          }
-        }),
-      });
+      const response = await fetch(
+        'http://localhost:3000/courses/get-courses-to-schedule',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({
+            jsonData: processedRequirements,
+            transcript: completedCourses,
+            grad_year: data.gradYear,
+            grad_quarter: data.gradQuarter,
+            preferences: {
+              allow_warnings: data.allowWarnings,
+              allow_primary_conflicts: data.allowPrimaryConflicts,
+              allow_secondary_conflicts: data.allowSecondaryConflicts,
+              pref_priority: data.prefPriority,
+              pref_earliest: data.earliestClassTime,
+              pref_latest: data.latestClassTime,
+              pref_no_days: data.prefNoDays,
+              pref_buildings: data.prefBuildings,
+              pref_instructors: data.prefInstructors,
+              max_courses_per_term: data.maxCoursesPerTerm,
+              least_courses_per_term: data.leastCoursesPerTerm,
+              tech_breadth: data.techBreadth,
+              second_tech_breadth: data.secondTechBreadth
+            }
+          })
+        }
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Error response from server:", errorText);
+        console.error('Error response from server:', errorText);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const scheduleData = await response.json();
-      console.log("Schedule data received:", JSON.stringify(scheduleData, null, 2));
+      console.log('Schedule data received:', JSON.stringify(scheduleData, null, 2));
 
       // Store schedule data in localStorage
       localStorage.setItem('scheduleData', JSON.stringify(scheduleData));
-      console.log("Schedule data stored in localStorage");
+      console.log('Schedule data stored in localStorage');
 
       // Navigate to home page
-      console.log("Navigating to home page...");
+      console.log('Navigating to home page...');
       navigate('/Home');
     } catch (error) {
-      console.error("Error in handleGenerateSchedule:", error);
+      console.error('Error in handleGenerateSchedule:', error);
     }
   };
 
@@ -919,6 +1017,7 @@ const SummaryView = ({
     <FormModal
       handleClick={handleGenerateSchedule}
       handleBackClick={handleBackClick}
+      showNextArrow={false}
     >
       <p className="text-4xl font-bold mb-4">Registration Summary</p>
       <div className="flex flex-col">
@@ -965,13 +1064,12 @@ const SummaryView = ({
               </span>
               {data.secondTechBreadth && (
                 <span>
-                  <strong>Second Major Technical Breadth Area:</strong> {data.secondTechBreadth}
+                  <strong>Second Major Technical Breadth Area:</strong>{' '}
+                  {data.secondTechBreadth}
                 </span>
               )}
             </>
-          ) : (
-            <></>
-          )}
+          ) : null}
         </motion.div>
         <motion.div
           className="flex flex-col bg-gray-300 rounded-xl p-5"
@@ -983,12 +1081,10 @@ const SummaryView = ({
             Edit
           </a>
           <span>
-            <strong>Prefer no class days on:</strong>{' '}
-            {data.prefNoDays.join(', ')}
+            <strong>Prefer no class days on:</strong> {data.prefNoDays.join(', ')}
           </span>
           <span>
-            <strong>Earliest start time:</strong>{' '}
-            {data.earliestClassTime}
+            <strong>Earliest start time:</strong> {data.earliestClassTime}
           </span>
           <span>
             <strong>Latest end time:</strong> {data.latestClassTime}
@@ -997,10 +1093,10 @@ const SummaryView = ({
       </div>
       <button
         onClick={() => {
-          console.log("Generate Schedule button clicked");
+          console.log('Generate Schedule button clicked');
           handleGenerateSchedule();
         }}
-        className="mt-4 bg-blue-900 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700"
+        className="mt-4 bg-blue-900 text-black px-4 py-2 rounded-lg shadow hover:bg-blue-800"
       >
         Generate Schedule
       </button>
@@ -1010,10 +1106,29 @@ const SummaryView = ({
 
 // Grade options for transcript
 const gradeOptions = [
-  'A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'D-', 'F'
+  'A+',
+  'A',
+  'A-',
+  'B+',
+  'B',
+  'B-',
+  'C+',
+  'C',
+  'C-',
+  'D+',
+  'D',
+  'D-',
+  'F'
 ];
 
-const TranscriptStep = ({ transcript, setTranscript, handleNextClick, handleBackClick, majorName, doubleMajorName }) => {
+const TranscriptStep = ({
+  transcript,
+  setTranscript,
+  handleNextClick,
+  handleBackClick,
+  majorName,
+  doubleMajorName
+}) => {
   const [selectedCourses, setSelectedCourses] = useState(Object.keys(transcript));
   const [availableCourses, setAvailableCourses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1030,9 +1145,9 @@ const TranscriptStep = ({ transcript, setTranscript, handleNextClick, handleBack
         const response = await fetch('http://localhost:3000/courses/by-majors', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ majors }),
+          body: JSON.stringify({ majors })
         });
         if (!response.ok) {
           throw new Error('Failed to fetch courses');
@@ -1050,7 +1165,7 @@ const TranscriptStep = ({ transcript, setTranscript, handleNextClick, handleBack
     }
   }, [majorName, doubleMajorName]);
 
-  const toggleCourse = (course) => {
+  const toggleCourse = course => {
     let newSelected;
     if (selectedCourses.includes(course)) {
       newSelected = selectedCourses.filter(c => c !== course);
@@ -1068,11 +1183,15 @@ const TranscriptStep = ({ transcript, setTranscript, handleNextClick, handleBack
     setTranscript({ ...transcript, [course]: grade });
   };
 
-  const subjects = ['All', ...new Set(availableCourses.map(course => course.split(' ')[0]))];
+  const subjects = [
+    'All',
+    ...new Set(availableCourses.map(course => course.split(' ')[0]))
+  ];
 
-  const filteredCourses = selectedSubject === 'All'
-    ? availableCourses
-    : availableCourses.filter(course => course.startsWith(selectedSubject));
+  const filteredCourses =
+    selectedSubject === 'All'
+      ? availableCourses
+      : availableCourses.filter(course => course.startsWith(selectedSubject));
 
   if (loading) {
     return (
@@ -1098,7 +1217,9 @@ const TranscriptStep = ({ transcript, setTranscript, handleNextClick, handleBack
             className="border rounded p-1"
           >
             {subjects.map(subject => (
-              <option key={subject} value={subject}>{subject}</option>
+              <option key={subject} value={subject}>
+                {subject}
+              </option>
             ))}
           </select>
         </div>
@@ -1108,7 +1229,9 @@ const TranscriptStep = ({ transcript, setTranscript, handleNextClick, handleBack
             return (
               <div
                 key={idx}
-                className={`pl-4 pr-4 pt-2 pb-2 border rounded-lg text-center cursor-pointer transition ${isSelected ? 'bg-blue-900 text-white' : 'bg-gray-100'}`}
+                className={`pl-4 pr-4 pt-2 pb-2 border rounded-lg text-center cursor-pointer transition ${
+                  isSelected ? 'bg-blue-900 text-white' : 'bg-gray-100'
+                }`}
                 onClick={() => toggleCourse(course)}
               >
                 <div>{course}</div>
@@ -1121,7 +1244,9 @@ const TranscriptStep = ({ transcript, setTranscript, handleNextClick, handleBack
                       className="border rounded p-1 bg-blue-900 text-white"
                     >
                       {gradeOptions.map(g => (
-                        <option key={g} value={g}>{g}</option>
+                        <option key={g} value={g}>
+                          {g}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -1163,11 +1288,16 @@ export const Form = () => {
   // Transcript: { 'COM SCI|31': 'A', ... }
   const [transcript, setTranscript] = useState({});
 
-  // Preferences
-  const [allowWarnings, setAllowWarnings] = useState(true);
-  const [allowPrimaryConflicts, setAllowPrimaryConflicts] = useState(true);
-  const [allowSecondaryConflicts, setAllowSecondaryConflicts] = useState(true);
-  const [prefPriority, setPrefPriority] = useState(['time', 'building', 'days', 'instructor']);
+  // Preferences (default to unchecked)
+  const [allowWarnings, setAllowWarnings] = useState(false);
+  const [allowPrimaryConflicts, setAllowPrimaryConflicts] = useState(false);
+  const [allowSecondaryConflicts, setAllowSecondaryConflicts] = useState(false);
+  const [prefPriority, setPrefPriority] = useState([
+    'time',
+    'building',
+    'days',
+    'instructor'
+  ]);
   const [prefEarliest, setPrefEarliest] = useState('09:00');
   const [prefLatest, setPrefLatest] = useState('18:00');
   const [prefNoDays, setPrefNoDays] = useState([]); // e.g. ['F']
@@ -1177,16 +1307,21 @@ export const Form = () => {
   const [leastCoursesPerTerm, setLeastCoursesPerTerm] = useState(3);
 
   const icebreakerValidate = () => {
-    return fullName.length > 0 &&
-      school && school.length > 0 &&
-        ["Fall", "Winter", "Spring"].includes(gradQuarter) &&
-          gradYear > 2023 &&
-            gradYear < 2040;
+    return (
+      fullName.length > 0 &&
+      school &&
+      school.length > 0 &&
+      ['Fall', 'Winter', 'Spring'].includes(gradQuarter) &&
+      gradYear > 2023 &&
+      gradYear < 2040
+    );
   };
 
   const infoDetailValidate = () => {
-    return major.length > 0 && // Check if major is not empty
-      (!wantsDbMajor || (wantsDbMajor && doubleMajor.length > 0)); // If double major is selected, check if second major is not empty
+    return (
+      major.length > 0 && // Check if major is not empty
+      (!wantsDbMajor || (wantsDbMajor && doubleMajor.length > 0))
+    ); // If double major is selected, check if second major is not empty
   };
 
   const scheduleValidate = () => {
@@ -1196,7 +1331,7 @@ export const Form = () => {
   const navigate = useNavigate();
   const onSignOut = async () => {
     await handleSignOut();
-    navigate("/");
+    navigate('/');
   };
 
   return (
@@ -1207,7 +1342,7 @@ export const Form = () => {
       >
         SIGN OUT
       </button>
-      {step == 1 ? (
+      {step === 1 && (
         <Icebreaker
           handleNextClick={handleNextClick}
           name={fullName}
@@ -1220,10 +1355,8 @@ export const Form = () => {
           setGradYear={setGradYear}
           validate={icebreakerValidate}
         />
-      ) : (
-        <></>
       )}
-      {step == 2 ? (
+      {step === 2 && (
         <InfoDetail
           handleNextClick={handleNextClick}
           handleBackClick={handleBackClick}
@@ -1246,10 +1379,8 @@ export const Form = () => {
           secondTechBreadth={secondTechBreadth}
           setSecondTechBreadth={setSecondTechBreadth}
         />
-      ) : (
-        <></>
       )}
-      {step == 3 ? (
+      {step === 3 && (
         <SchedulePreferences
           prefNoDays={prefNoDays}
           setPrefNoDays={setPrefNoDays}
@@ -1261,10 +1392,8 @@ export const Form = () => {
           handleBackClick={handleBackClick}
           validate={scheduleValidate}
         />
-      ) : (
-        <></>
       )}
-      {step == 4 ? (
+      {step === 4 && (
         <PreferencesStep
           leastCoursesPerTerm={leastCoursesPerTerm}
           setLeastCoursesPerTerm={setLeastCoursesPerTerm}
@@ -1277,10 +1406,8 @@ export const Form = () => {
           handleNextClick={handleNextClick}
           handleBackClick={handleBackClick}
         />
-      ) : (
-        <></>
       )}
-      {step == 5 ? (
+      {step === 5 && (
         <AdvancedPreferencesStep
           allowWarnings={allowWarnings}
           setAllowWarnings={setAllowWarnings}
@@ -1293,10 +1420,8 @@ export const Form = () => {
           handleNextClick={handleNextClick}
           handleBackClick={handleBackClick}
         />
-      ) : (
-        <></>
       )}
-      {step == 6 ? (
+      {step === 6 && (
         <TranscriptStep
           transcript={transcript}
           setTranscript={setTranscript}
@@ -1305,10 +1430,8 @@ export const Form = () => {
           majorName={majorName}
           doubleMajorName={wantsDbMajor ? doubleMajorName : null}
         />
-      ) : (
-        <></>
       )}
-      {step == 7 ? (
+      {step === 7 && (
         <SummaryView
           handleBackClick={handleBackClick}
           setStep={setStep}
@@ -1338,8 +1461,6 @@ export const Form = () => {
             secondTechBreadth: secondTechBreadth
           }}
         />
-      ) : (
-        <></>
       )}
     </div>
   );
