@@ -267,12 +267,14 @@ const InfoDetail = ({
   setDoubleMajor = () => {},
   setDoubleMajorName = () => {},
   school = '',
-  validate = () => {}
+  validate = () => {},
+  techBreadth = '',
+  setTechBreadth = () => {},
+  secondTechBreadth = '',
+  setSecondTechBreadth = () => {}
 }) => {
   const [dbMajorSelect, setDbMajorSelect] = useState(wantsDbMajor);
   const [secondSchool, setSecondSchool] = useState('');
-  const [techBreadth, setTechBreadth] = useState('');
-  const [secondTechBreadth, setSecondTechBreadth] = useState('');
   const [techBreadthError, setTechBreadthError] = useState('');
 
   const showDbMajor = (visible) => {
@@ -784,6 +786,29 @@ const SummaryView = ({
   const { session } = useAuth();
   const navigate = useNavigate();
 
+  const handleCreateProfile = async () => {
+    console.log("hello world")
+    console.log(session)
+    if (!session || !session.user) {
+      return;
+    }
+
+    const { error } = await supabase.from('profiles').insert([
+      {
+        profile_id: session.user.id,
+        complete: true,
+        full_name: "hi",
+        created_at: "hi"
+      },
+    ]);
+
+    if (error) {
+      console.error(error);
+    } else {
+      navigate('/Home');
+    }
+  };
+
   const handleGenerateSchedule = async () => {
     try {
       console.log("Starting schedule generation...");
@@ -862,7 +887,9 @@ const SummaryView = ({
             pref_buildings: data.prefBuildings,
             pref_instructors: data.prefInstructors,
             max_courses_per_term: data.maxCoursesPerTerm,
-            least_courses_per_term: data.leastCoursesPerTerm
+            least_courses_per_term: data.leastCoursesPerTerm,
+            tech_breadth: data.techBreadth,
+            second_tech_breadth: data.secondTechBreadth
           }
         }),
       });
@@ -926,10 +953,22 @@ const SummaryView = ({
           <span>
             <strong>Major:</strong> {data.major}
           </span>
-          {data.wantsDbMajor ? (
+          {data.techBreadth && (
             <span>
-              <strong>Double major:</strong> {data.doubleMajor}
+              <strong>Technical Breadth Area:</strong> {data.techBreadth}
             </span>
+          )}
+          {data.wantsDbMajor ? (
+            <>
+              <span>
+                <strong>Double major:</strong> {data.doubleMajor}
+              </span>
+              {data.secondTechBreadth && (
+                <span>
+                  <strong>Second Major Technical Breadth Area:</strong> {data.secondTechBreadth}
+                </span>
+              )}
+            </>
           ) : (
             <></>
           )}
@@ -1115,6 +1154,8 @@ export const Form = () => {
   const [doubleMajorName, setDoubleMajorName] = useState('');
   const [earliestClassTime, setEarliestClassTime] = useState(null);
   const [latestClassTime, setLatestClassTime] = useState(null);
+  const [techBreadth, setTechBreadth] = useState('');
+  const [secondTechBreadth, setSecondTechBreadth] = useState('');
 
   const [endYear, setEndYear] = useState(null);
   const [endQuarter, setEndQuarter] = useState('');
@@ -1200,6 +1241,10 @@ export const Form = () => {
           setDoubleMajorName={setDoubleMajorName}
           school={school}
           validate={infoDetailValidate}
+          techBreadth={techBreadth}
+          setTechBreadth={setTechBreadth}
+          secondTechBreadth={secondTechBreadth}
+          setSecondTechBreadth={setSecondTechBreadth}
         />
       ) : (
         <></>
@@ -1288,7 +1333,9 @@ export const Form = () => {
             allowWarnings: allowWarnings,
             allowPrimaryConflicts: allowPrimaryConflicts,
             allowSecondaryConflicts: allowSecondaryConflicts,
-            prefPriority: prefPriority
+            prefPriority: prefPriority,
+            techBreadth: techBreadth,
+            secondTechBreadth: secondTechBreadth
           }}
         />
       ) : (

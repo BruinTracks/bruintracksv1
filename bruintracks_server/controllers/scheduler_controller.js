@@ -1,8 +1,8 @@
 import { OpenAI } from "openai";
 import dotenv from "dotenv";
+import { spawn } from 'child_process';
+import path from 'path';
 dotenv.config();
-import path from "path";
-import { spawn } from "child_process";
 import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
 import supabase from "./supabase_client.js";
@@ -31,19 +31,9 @@ You are helping build a structured list of courses required for a major. Your ta
    - Only include the selected course, not all options
 
 2. For elective requirements with specific counts:
-   - Pay close attention to the number of courses required (e.g., "Select six additional major field elective courses")
-   - Select EXACTLY the specified number of courses
-   - Choose courses that:
-     * Complement the student's completed coursework
-     * Follow a logical progression
-     * Avoid duplicates
-     * Consider prerequisites
-   - If a maximum unit limit is specified (e.g., "maximum of 8 units of course 199"), respect that limit
+   - Do NOT come up with any course substitutions. Instead, assume every elective is 4 units. Add the elective title placeholder, proceeded by "RESOLVE:", to the list and then the number of the elective. For example, the Computer Science and Engineering requires 12 units of electives. Then we include "RESOLVE: Computer Science Elective #1", "RESOLVE: Computer Science Elective #2", "RESOLVE: Computer Science Elective #3". Even if it's just one particular elective, i.e. the Electrical and Computer Engineering Elective for Computer Science & Engineering, we'll still label it "RESOLVE: Electrical and Computer Engineering Elective #1". This does NOT apply to tech breadths.
 
-3. For technical breadth requirements:
-   - Select the specified number of courses
-   - Choose courses that complement the major requirements
-   - Consider the student's completed courses
+3. For technical breadth requirements, ignore them. We will handle them separately.
 
 4. DO NOT include courses that the student has already completed
 
@@ -67,8 +57,52 @@ You are helping build a structured list of courses required for a major. Your ta
 - Make intelligent selections based on course descriptions and student's background
 - Consider prerequisites and course dependencies
 - Select EXACTLY the number of courses specified in the requirements
-- For electives, choose courses that form a coherent specialization
+- Do not under any circumstance include technical breadth courses or information in the list.
 `;
+
+// Add function to get tech breadth recommendations
+async function getTechBreadthRecommendations(transcript, techBreadthArea, required_courses) {
+  return new Promise((resolve, reject) => {
+    const pythonProcess = spawn('python3', [
+      path.join(process.cwd(), '../bruintracks_scripts/scheduler/tech_breadth_optimizer.py')
+    ]);
+
+    let outputData = '';
+    let errorData = '';
+
+    pythonProcess.stdin.write(JSON.stringify({
+      transcript: transcript,
+      required_courses: required_courses,
+      tech_breadth_area: techBreadthArea
+    }));
+    pythonProcess.stdin.end();
+
+    pythonProcess.stdout.on('data', (data) => {
+      outputData += data.toString();
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      errorData += data.toString();
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code !== 0) {
+        console.error('Tech breadth optimizer error:', errorData);
+        reject(new Error(`Tech breadth optimizer failed with code ${code}`));
+        return;
+      }
+
+      try {
+        const recommendations = JSON.parse(outputData);
+        resolve(recommendations);
+        console.log("Tech breadth recommendations:", recommendations);
+      } catch (error) {
+        console.error('Failed to parse tech breadth optimizer output:', error);
+        reject(error);
+      }
+    });
+  });
+}
 
 export const getCoursesToSchedule = async (req, res) => {
   try {
@@ -133,6 +167,7 @@ export const getCoursesToSchedule = async (req, res) => {
     const allCourses = new Set();
     const gptPromises = [];
 
+    // First process the major requirements to get the initial course list
     for (const section of requirements) {
       console.log("\nProcessing section:", section.title);
 
@@ -196,7 +231,9 @@ export const getCoursesToSchedule = async (req, res) => {
               console.log("Adding courses:", courses);
 
               courses.forEach((course) => {
-                if (typeof course === "string" && course.trim()) {
+		if (course.includes("RESOLVE"))
+		      allCourses.add(course);
+		else if (typeof course === "string" && course.trim()) {
                   // Handle multi-word subjects like "COM SCI" and "EC ENGR"
                   const parts = course.trim().split(/\s+/);
                   if (parts.length >= 2) {
@@ -232,6 +269,52 @@ export const getCoursesToSchedule = async (req, res) => {
 
     // Wait for all GPT responses to complete
     await Promise.all(gptPromises);
+
+    // Now get tech breadth recommendations with the current course list
+    if (preferences?.tech_breadth) {
+      try {
+        console.log("\n🔍 Getting technical breadth recommendations...");
+        console.log("Current required courses:", Array.from(allCourses));
+        const techBreadthCourses = await getTechBreadthRecommendations(
+          formattedTranscript,
+          preferences.tech_breadth,
+          Array.from(allCourses) // Pass the current course list
+        );
+        console.log("Technical breadth recommendations:", techBreadthCourses);
+        
+        // Add recommended courses to allCourses
+        techBreadthCourses.forEach(courseId => {
+          if (!formattedTranscript[courseId]) {
+            allCourses.add(courseId);
+          }
+        });
+      } catch (error) {
+        console.error("Error getting tech breadth recommendations:", error);
+      }
+    }
+
+    // Get second major tech breadth recommendations if applicable
+    if (preferences?.second_tech_breadth) {
+      try {
+        console.log("\n🔍 Getting second major technical breadth recommendations...");
+        console.log("Current required courses:", Array.from(allCourses));
+        const secondTechBreadthCourses = await getTechBreadthRecommendations(
+          formattedTranscript,
+          preferences.second_tech_breadth,
+          Array.from(allCourses) // Pass the current course list
+        );
+        console.log("Second major technical breadth recommendations:", secondTechBreadthCourses);
+        
+        // Add recommended courses to allCourses
+        secondTechBreadthCourses.forEach(courseId => {
+          if (!formattedTranscript[courseId]) {
+            allCourses.add(courseId);
+          }
+        });
+      } catch (error) {
+        console.error("Error getting second major tech breadth recommendations:", error);
+      }
+    }
 
     const finalList = {
       start_year: 2024,
@@ -298,6 +381,8 @@ export const getCoursesToSchedule = async (req, res) => {
         pref_instructors: preferences?.pref_instructors ?? [],
         max_courses_per_term: preferences?.max_courses_per_term ?? 4,
         least_courses_per_term: preferences?.least_courses_per_term ?? 3,
+        tech_breadth: preferences?.tech_breadth ?? null,
+        second_tech_breadth: preferences?.second_tech_breadth ?? null
       },
     };
 
