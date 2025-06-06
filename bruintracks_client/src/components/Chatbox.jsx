@@ -2,8 +2,10 @@ import { Button } from './Button';
 import { InputField } from './InputField';
 import { motion } from 'framer-motion';
 import { useState, useRef, useEffect } from 'react';
+import { useAuth } from '../AuthContext';
 
 export const Chatbox = () => {
+  const { session } = useAuth();
   const [messages, setMessages] = useState(() => {
     const savedMessages = localStorage.getItem('chatHistory');
     return savedMessages ? JSON.parse(savedMessages) : [
@@ -52,9 +54,16 @@ export const Chatbox = () => {
     setIsLoading(true);
 
     try {
+      if (!session?.access_token) {
+        throw new Error('No authentication token found. Please sign in again.');
+      }
+
       const response = await fetch('http://localhost:3000/api/query', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
         body: JSON.stringify({
           question: userMessage,
           chatHistory: updatedMessages
@@ -75,7 +84,12 @@ export const Chatbox = () => {
       }
     } catch (err) {
       console.error('Chat error:', err);
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }]);
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: err.message === 'No authentication token found. Please sign in again.' 
+          ? err.message 
+          : 'Sorry, I encountered an error. Please try again.'
+      }]);
     } finally {
       setIsLoading(false);
     }
@@ -147,11 +161,12 @@ export const Chatbox = () => {
       {/* Input */}
       <div className="border-t border-gray-700 p-4 bg-gray-800">
         <div className="flex items-center space-x-2">
-          <InputField
+          <input
+            type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyPress}
-            className="flex-1 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="flex-1 bg-gray-700 border border-gray-600 text-white placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent p-2"
             placeholder="Type your message..."
           />
           <Button 

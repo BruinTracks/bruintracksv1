@@ -31,6 +31,20 @@ const CourseCard = ({ course, courseData, isFirstTerm }) => {
     );
   }
 
+  // If it's a filler course, show a simple card without the "not available" message
+  if (course === 'FILLER' || course.startsWith('FILLER_')) {
+    return (
+      <motion.div 
+        className="bg-gray-700 rounded-lg shadow-md p-4 mb-4"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        whileHover={{ y: -5 }}
+      >
+        <h3 className="text-lg font-semibold text-white">Filler Course</h3>
+      </motion.div>
+    );
+  }
+
   // If courseData is not an object or is null, return a simple card
   if (!courseData || typeof courseData !== 'object') {
     return (
@@ -41,7 +55,7 @@ const CourseCard = ({ course, courseData, isFirstTerm }) => {
         whileHover={{ y: -5 }}
       >
         <h3 className="text-lg font-semibold text-white">
-          {course === 'FILLER' ? 'Filler Course' : cleanCourseName(course)}
+          {cleanCourseName(course)}
         </h3>
         <p className="text-gray-400">Course details not available</p>
       </motion.div>
@@ -584,10 +598,10 @@ export const HomePage = () => {
               course && typeof course === 'string' && course.trim() !== '' && course !== 'FILLER'
             );
             
-            // Add filler courses if needed
-            while (validCourses.length < leastCoursesPerTerm) {
-              validCourses.push('FILLER');
-            }
+            // // Add filler courses if needed
+            // while (validCourses.length < leastCoursesPerTerm) {
+            //   validCourses.push('FILLER');
+            // }
             
             cleanedSchedule[quarter] = validCourses;
           } else {
