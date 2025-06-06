@@ -9,18 +9,6 @@ from itertools import combinations
 from dotenv import load_dotenv
 from supabase import create_client
 
-"""
-===========================  UPDATED SCHEDULING ALGORITHM  ===========================
-Key change (May 2025):
-• A course is scheduled into a term **only if** that course actually offers at least
-  one lecture *or* discussion section in that term.  
-• Courses that cannot be placed anywhere because of this check appear in the note
-  ("Unable to schedule …").
-All other behaviour (prerequisite logic, preference scoring, fillers, etc.) is left
-intact.
-======================================================================================
-"""
-
 # ───── CONFIGURATION ─────
 load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -183,6 +171,9 @@ def build_schedule(start_y: int, start_q: str,
     db_map = {r['term_name'].split()[0]: r['id'] for r in term_rows}
     idx2db = [db_map.get(lbl.split()[0]) for lbl in terms]
 
+    # Track scheduling failures
+    scheduling_failures = {}
+
     # subject mappings --------------------------------------------------------
     subs = safe_execute(supa.table("subjects").select("id,code,name")).data
     sub2id = {s['code']: s['id'] for s in subs}
@@ -295,6 +286,9 @@ def build_schedule(start_y: int, start_q: str,
     offer_terms_by_course: Dict[str, Set[int]] = {}
     for c, sec_list in sections_by_course.items():
         offer_terms_by_course[c] = {sec['term_id'] for sec in sec_list}
+        # Track courses with no sections
+        if not sec_list:
+            scheduling_failures[c] = "No available sections found"
 
     # ───── 4. Build prereq DAG ---------------------------------------------
     adj = {c: [] for c in required}
@@ -307,6 +301,9 @@ def build_schedule(start_y: int, start_q: str,
                 sev == 'R' or (sev == 'W' and not allow_warnings)):
                 adj[rc].append(c)
                 indegree[c] += 1
+                # Track prerequisite dependencies
+                if rc not in scheduling_failures:
+                    scheduling_failures[rc] = f"Required as {typ} for {c}"
 
     remaining = set(required)
     R_rem = len(remaining)
@@ -350,6 +347,7 @@ def build_schedule(start_y: int, start_q: str,
 
             # Skip courses that actually have *no* meeting in this term
             if not best_sec and not best_disc:
+                scheduling_failures[course] = "No available sections in this term"
                 continue
 
             sel[course] = {'lecture': best_sec, 'discussion': best_disc}
@@ -387,6 +385,10 @@ def build_schedule(start_y: int, start_q: str,
             if not prefixes:
                 # If no valid prefixes found, try to find any combination of available courses
                 prefixes = [[c for c in avail if term_db_id in offer_terms_by_course.get(c, set())][:target]]
+                if not prefixes[0]:
+                    for course in avail:
+                        if course not in scheduling_failures:
+                            scheduling_failures[course] = "No valid schedule combinations found"
             
             scored = [
                 (sc, sel, pf)
@@ -401,6 +403,7 @@ def build_schedule(start_y: int, start_q: str,
             valid = []
             for sc, sel, pf in scored:
                 conflict = False
+                conflict_courses = set()
 
                 if not ALLOW_PRIMARY_CONFLICTS:
                     lec_list = [sel[c]['lecture'] for c in pf if sel[c]['lecture']]
@@ -410,6 +413,8 @@ def build_schedule(start_y: int, start_q: str,
                                 for m2 in lec_list[j]['times']:
                                     if meetings_overlap(m1, m2):
                                         conflict = True
+                                        conflict_courses.add(pf[i])
+                                        conflict_courses.add(pf[j])
                 if not conflict and not ALLOW_SECONDARY_CONFLICTS:
                     dis_list = [sel[c]['discussion'] for c in pf if sel[c]['discussion']]
                     for i in range(len(dis_list)):
@@ -418,6 +423,8 @@ def build_schedule(start_y: int, start_q: str,
                                 for m2 in dis_list[j]['times']:
                                     if meetings_overlap(m1, m2):
                                         conflict = True
+                                        conflict_courses.add(pf[i])
+                                        conflict_courses.add(pf[j])
                     lec_list = [sel[c]['lecture'] for c in pf if sel[c]['lecture']]
                     for lec in lec_list:
                         for d in dis_list:
@@ -425,8 +432,14 @@ def build_schedule(start_y: int, start_q: str,
                                 for m2 in d['times']:
                                     if meetings_overlap(m1, m2):
                                         conflict = True
+                                        conflict_courses.add(pf[i])
+                                        conflict_courses.add(pf[j])
                 if not conflict:
                     valid.append((sc, sel, pf))
+                else:
+                    for course in conflict_courses:
+                        if course not in scheduling_failures:
+                            scheduling_failures[course] = "Schedule conflicts with other courses"
             choices = valid or scored
             best_sc, best_sel, take = max(choices, key=lambda x: x[0])
             schedule[term] = best_sel
@@ -470,7 +483,12 @@ def build_schedule(start_y: int, start_q: str,
 
     note = None
     if unscheduled:
-        note = "Unable to schedule: " + ", ".join(sorted(unscheduled))
+        # Create detailed explanation for each unscheduled course
+        explanations = []
+        for course in sorted(unscheduled):
+            reason = scheduling_failures.get(course, "No available sections found")
+            explanations.append(f"{course} ({reason})")
+        note = "Unable to schedule: " + "; ".join(explanations)
 
     # Restore original COURSES_TO_SCHEDULE
     COURSES_TO_SCHEDULE = original_courses

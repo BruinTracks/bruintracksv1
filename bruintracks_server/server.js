@@ -6,6 +6,8 @@ import courseRoutes from "./routes/course_routes.js";
 import instructorRoutes from "./routes/instructor_routes.js";
 import scheduleRoutes from "./routes/schedule_routes.js";
 import { buildSchedule, getElectiveOptions } from "./services/courseOptionResolver.js";
+import queryRoutes from "./routes/query_routes.js";
+import { authenticateUser } from "./middleware/auth.js";
 
 const app = express();
 const port = 3000;
@@ -18,7 +20,8 @@ app.use("/schools", schoolRoutes);
 app.use("/majors", majorRoutes);
 app.use("/courses", courseRoutes);
 app.use("/instructors", instructorRoutes);
-app.use("/api/schedule", scheduleRoutes);
+app.use("/api/schedule", authenticateUser, scheduleRoutes);
+app.use("/api/query", authenticateUser, queryRoutes);
 
 app.post('/api/schedule/build', async (req, res) => {
     try {

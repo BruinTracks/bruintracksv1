@@ -2,9 +2,16 @@ import { OpenAI } from "openai";
 import dotenv from "dotenv";
 import { spawn } from 'child_process';
 import path from 'path';
-
 dotenv.config();
+import { fileURLToPath } from "url";
+import { createClient } from "@supabase/supabase-js";
+import supabase from "./supabase_client.js";
+
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// ESM __dirname shim
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // System prompt for GPT
 const systemPrompt = `
@@ -403,6 +410,7 @@ export const getCoursesToSchedule = async (req, res) => {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              Authorization: req.headers.authorization, // Pass through the auth token
             },
             body: JSON.stringify(schedulingRequestBody),
           });
@@ -436,7 +444,7 @@ export const getCoursesToSchedule = async (req, res) => {
     } catch (schedulingError) {
       console.error("Error in scheduling:", schedulingError);
       // Still return the course list even if scheduling fails
-      res.json(finalList);
+      res.status(500).json({ error: "Internal server error" });
     }
   } catch (error) {
     console.error("Error in getCoursesToSchedule:", error);

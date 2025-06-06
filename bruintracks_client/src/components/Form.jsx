@@ -811,6 +811,9 @@ const SummaryView = ({
 
   const handleGenerateSchedule = async () => {
     try {
+      console.log("Starting schedule generation...");
+      console.log("Current session:", session); // Debug log
+      
       // Get selected majors
       const selectedMajors = [data.majorName];
       if (data.doubleMajorName) {
@@ -818,7 +821,17 @@ const SummaryView = ({
       }
       console.log("Selected majors:", selectedMajors);
 
+      // Check for session
+      if (!session || !session.access_token) {
+        console.error("No active session found");
+        // Redirect to login if no session
+        navigate('/');
+        return;
+      }
+      console.log("Got session:", session);
+
       // Fetch major requisites from Supabase
+      console.log("Fetching major requisites...");
       const { data: majorRequisites, error: supabaseError } = await supabase
         .from('major_requisites')
         .select('json_data')
@@ -848,12 +861,15 @@ const SummaryView = ({
         // Convert from "COM SCI|31" format to "COM SCI 31" format
         return course.replace('|', ' ');
       });
+      console.log("Completed courses:", completedCourses);
 
+      console.log("Calling get-courses-to-schedule endpoint...");
       // Call the get-courses-to-schedule endpoint
       const response = await fetch('http://localhost:3000/courses/get-courses-to-schedule', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({ 
           jsonData: processedRequirements,
@@ -885,12 +901,14 @@ const SummaryView = ({
       }
 
       const scheduleData = await response.json();
-      console.log("Schedule data:", JSON.stringify(scheduleData, null, 2));
+      console.log("Schedule data received:", JSON.stringify(scheduleData, null, 2));
 
       // Store schedule data in localStorage
       localStorage.setItem('scheduleData', JSON.stringify(scheduleData));
+      console.log("Schedule data stored in localStorage");
 
       // Navigate to home page
+      console.log("Navigating to home page...");
       navigate('/Home');
     } catch (error) {
       console.error("Error in handleGenerateSchedule:", error);
@@ -899,7 +917,7 @@ const SummaryView = ({
 
   return (
     <FormModal
-      handleClick={handleCreateProfile}
+      handleClick={handleGenerateSchedule}
       handleBackClick={handleBackClick}
     >
       <p className="text-4xl font-bold mb-4">Registration Summary</p>
@@ -978,7 +996,10 @@ const SummaryView = ({
         </motion.div>
       </div>
       <button
-        onClick={handleGenerateSchedule}
+        onClick={() => {
+          console.log("Generate Schedule button clicked");
+          handleGenerateSchedule();
+        }}
         className="mt-4 bg-blue-900 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700"
       >
         Generate Schedule

@@ -357,7 +357,7 @@ export const WeeklyCalendar = ({ courses }) => {
   ];
 
   const DAY_LABEL_WIDTH = 96;  // px (Tailwind w‑24 ⇒ 6rem)
-  const ROW_HEIGHT      = 40;  // px (min‑h‑[40px]) – each slot is 30 min
+  const ROW_HEIGHT      = 40;  // px (min‑h‑[40px]) – each slot is 30 min
 
   /* ───────── helpers ───────── */
   const timeToMinutes = (t) => {
@@ -373,6 +373,35 @@ export const WeeklyCalendar = ({ courses }) => {
 
   const occursOn = (timeObj, day) =>
     (timeObj?.days || "").split("").some((d) => dayMap[d] === day);
+
+  // New function to detect overlapping courses
+  const findOverlappingCourses = (day) => {
+    const sessions = sessionsForDay(day);
+    const overlaps = new Map(); // Map to store overlaps for each time slot
+
+    sessions.forEach((session1, idx1) => {
+      const start1 = timeToMinutes(session1.start);
+      const end1 = timeToMinutes(session1.end);
+
+      sessions.forEach((session2, idx2) => {
+        if (idx1 === idx2) return; // Skip same session
+
+        const start2 = timeToMinutes(session2.start);
+        const end2 = timeToMinutes(session2.end);
+
+        // Check if sessions overlap
+        if (start1 < end2 && start2 < end1) {
+          const key = `${session1.name}-${session1.label}`;
+          if (!overlaps.has(key)) {
+            overlaps.set(key, new Set());
+          }
+          overlaps.get(key).add(`${session2.name}-${session2.label}`);
+        }
+      });
+    });
+
+    return overlaps;
+  };
 
   /**
    * Flatten ‑> array of { name, label, start, end, building, room } for that day
@@ -439,11 +468,14 @@ export const WeeklyCalendar = ({ courses }) => {
             {/* course blocks */}
             {days.flatMap((day, colIdx) => {
               const blocks = sessionsForDay(day);
+              const overlaps = findOverlappingCourses(day);
+              
               return blocks.map((blk) => {
                 const startM = timeToMinutes(blk.start);
                 const endM   = timeToMinutes(blk.end);
-                const top    = ((startM - 480) / 30) * ROW_HEIGHT; // 480 = 8*60
+                const top    = ((startM - 480) / 30) * ROW_HEIGHT; // 480 = 8*60
                 const height = Math.max((endM - startM) / 30 * ROW_HEIGHT, ROW_HEIGHT);
+                const overlapCount = overlaps.get(`${blk.name}-${blk.label}`)?.size || 0;
 
                 return (
                   <motion.div
@@ -459,6 +491,11 @@ export const WeeklyCalendar = ({ courses }) => {
                     animate={{ opacity: 1, scale: 1 }}
                     whileHover={{ scale: 1.05, backgroundColor: "#1a365d" }}
                   >
+                    {overlapCount > 0 && (
+                      <div className="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        {overlapCount}
+                      </div>
+                    )}
                     <p className="font-semibold text-blue-400 break-words">
                       {blk.name.replace(/\|/g, " ")}
                     </p>
@@ -479,8 +516,6 @@ export const WeeklyCalendar = ({ courses }) => {
   );
 };
 
-
-
 export const HomePage = () => {
   const navigate = useNavigate();
   const [scheduleData, setScheduleData] = useState(null);
@@ -488,6 +523,12 @@ export const HomePage = () => {
   const [loading, setLoading] = useState(true);
   const [leastCoursesPerTerm, setLeastCoursesPerTerm] = useState(3);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleChatButtonClick = () => {
+    console.log('Chat button clicked');
+    setIsChatOpen(true);
+  };
 
   // Clean course name by replacing "|" with a space
   const cleanCourseName = (name) => {
@@ -571,7 +612,11 @@ export const HomePage = () => {
 
         if (data.schedule.note) {
           console.log("Found note in schedule data:", data.schedule.note);
-          const unscheduled = data.schedule.note.replace('Unable to schedule: ', '').split(', ');
+          // Parse the note to get unscheduled courses with their reasons
+          const unscheduled = data.schedule.note
+            .replace('Unable to schedule: ', '')
+            .split('; ')
+            .map(course => course.trim());
           console.log("Parsed unscheduled courses:", unscheduled);
           setUnscheduledCourses(unscheduled);
         }
@@ -729,53 +774,54 @@ export const HomePage = () => {
           >
             <h2 className="text-2xl font-bold text-white mb-4">Unscheduled Courses</h2>
             <p className="text-gray-400 mb-4">
-              The following courses could not be scheduled due to conflicts or availability:
+              The following courses could not be scheduled:
             </p>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {unscheduledCourses.map((course, idx) => (
-                <motion.div 
-                  key={idx} 
-                  className="bg-gray-800 rounded p-3"
-                  whileHover={{ scale: 1.05 }}
-                >
-                  <p className="text-gray-300">{cleanCourseName(course)}</p>
-                </motion.div>
-              ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {unscheduledCourses.map((course, idx) => {
+                // Parse the course and its reason
+                const [courseCode, reason] = course.split(' (');
+                const cleanReason = reason ? reason.slice(0, -1) : 'No reason provided';
+                
+                return (
+                  <motion.div 
+                    key={idx} 
+                    className="bg-gray-800 rounded p-4"
+                    whileHover={{ scale: 1.05 }}
+                  >
+                    <h3 className="text-lg font-semibold text-blue-400 mb-2">
+                      {cleanCourseName(courseCode)}
+                    </h3>
+                    <p className="text-gray-300 text-sm">
+                      {cleanReason}
+                    </p>
+                  </motion.div>
+                );
+              })}
             </div>
           </motion.div>
         )}
 
         {/* Floating Chat Button */}
-        <motion.div
-          className="fixed bottom-8 right-8 z-50"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
+        <button
+          onClick={handleChatButtonClick}
+          className="fixed bottom-6 right-6 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-200 z-50"
+          aria-label="Open chat"
         >
-          <motion.button
-            onClick={() => setIsChatOpen(!isChatOpen)}
-            className="bg-blue-600 text-white w-16 h-16 rounded-full shadow-xl flex items-center justify-center hover:bg-blue-700 transition-colors border-2 border-white"
-            whileHover={{ scale: 1.1, boxShadow: "0 0 20px rgba(59, 130, 246, 0.5)" }}
-            whileTap={{ scale: 0.9 }}
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
           >
-            <div className="flex flex-col items-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-8 w-8"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                />
-              </svg>
-              <span className="text-xs mt-1 font-medium">AI Assistant</span>
-            </div>
-          </motion.button>
-        </motion.div>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+            />
+          </svg>
+        </button>
 
         {/* Chat Interface */}
         {isChatOpen && (
@@ -790,25 +836,48 @@ export const HomePage = () => {
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
                 <h3 className="text-lg font-semibold text-white">AI Planning Assistant</h3>
               </div>
-              <button
-                onClick={() => setIsChatOpen(false)}
-                className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-gray-700 transition-colors"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setIsChatOpen(false)}
+                  className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-gray-700 transition-colors"
+                  title="Minimize"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setIsChatOpen(false)}
+                  className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-gray-700 transition-colors"
+                  title="Close"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
             </div>
             <div className="h-[calc(100%-4rem)] overflow-hidden">
               <Chatbox />
