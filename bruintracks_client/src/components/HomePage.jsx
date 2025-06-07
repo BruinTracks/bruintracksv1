@@ -729,8 +729,8 @@ export const HomePage = () => {
         console.log("Successfully fetched schedule data:", data);
         
         // Extract schedule data and note from the response
-        const actualSchedule = data.schedule?.schedule;
         const note = data.schedule?.note;
+        const actualSchedule = data.schedule.schedule;
 
         if (!actualSchedule) {
           console.error("Schedule data is missing the 'schedule' property:", data);
@@ -747,7 +747,6 @@ export const HomePage = () => {
         }
 
         // Get the actual schedule object
-        const actualSchedule = data.schedule.schedule;
         console.log("Actual schedule data:", actualSchedule);
 
         // Validate and clean the schedule data
