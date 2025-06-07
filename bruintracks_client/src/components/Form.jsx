@@ -908,6 +908,11 @@ const SummaryView = ({ data = {}, handleBackClick = () => {}, setStep = () => {}
       handleCreateProfile();
       console.log("Starting schedule generation...");
       console.log("Current session:", session); // Debug log
+
+      // Set isGenerating flag in localStorage and navigate to loading page
+      localStorage.setItem('scheduleData', JSON.stringify({ isGenerating: true }));
+      navigate('/Home');
+
       // Get selected majors
       const selectedMajors = [data.majorName];
       if (data.doubleMajorName) {
@@ -1018,15 +1023,21 @@ const SummaryView = ({ data = {}, handleBackClick = () => {}, setStep = () => {}
       const scheduleData = await response.json();
       console.log('Schedule data received:', JSON.stringify(scheduleData, null, 2));
 
-      // Store schedule data in localStorage
-      localStorage.setItem('scheduleData', JSON.stringify(scheduleData));
+      // Store schedule data in localStorage with isGenerating set to false
+      localStorage.setItem('scheduleData', JSON.stringify({
+        ...scheduleData,
+        isGenerating: false
+      }));
       console.log('Schedule data stored in localStorage');
 
-      // Navigate to home page
-      console.log('Navigating to home page...');
-      navigate('/Home');
+      // Reload the page to show the new schedule
+      window.location.reload();
     } catch (error) {
       console.error('Error in handleGenerateSchedule:', error);
+      // Clear isGenerating flag on error
+      localStorage.setItem('scheduleData', JSON.stringify({ isGenerating: false }));
+      // Navigate back to form on error
+      navigate('/form');
     }
   };
 

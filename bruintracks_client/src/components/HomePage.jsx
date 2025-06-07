@@ -702,6 +702,7 @@ export const HomePage = () => {
   const [scheduleData, setScheduleData] = useState(null);
   const [unscheduledCourses, setUnscheduledCourses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isGeneratingSchedule, setIsGeneratingSchedule] = useState(false);
   const [leastCoursesPerTerm, setLeastCoursesPerTerm] = useState(3);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -756,6 +757,21 @@ export const HomePage = () => {
     const loadScheduleData = async () => {
       console.log("Starting to fetch most recent schedule from Supabase...");
       
+      // Check if we're generating a schedule
+      const storedSchedule = localStorage.getItem('scheduleData');
+      if (storedSchedule) {
+        try {
+          const data = JSON.parse(storedSchedule);
+          if (data.isGenerating) {
+            setIsGeneratingSchedule(true);
+            setLoading(true);
+            return;
+          }
+        } catch (error) {
+          console.error("Error parsing stored schedule:", error);
+        }
+      }
+      
       if (!session?.user?.id) {
         console.log("No user session found");
         setLoading(false);
@@ -796,7 +812,7 @@ export const HomePage = () => {
           return;
         }
 
- // Pull least_courses_per_term from data.preferences (not data.schedule.preferences)
+        // Pull least_courses_per_term from data.preferences (not data.schedule.preferences)
         if (
           data.preferences &&
           typeof data.preferences.least_courses_per_term === 'number'
@@ -877,6 +893,7 @@ export const HomePage = () => {
         console.error("Error stack:", error.stack);
       } finally {
         setLoading(false);
+        setIsGeneratingSchedule(false);
       }
     };
 
@@ -953,53 +970,38 @@ export const HomePage = () => {
     navigate("/");
   };
 
-  if (loading) {
+  if (loading || !scheduleData) {
     return (
-      <div className="bg-gray-900 min-h-screen min-w-screen text-white flex flex-col items-center pt-10">
-        <div className="max-w-7xl mx-auto">
-          <motion.h1
-            className="text-3xl font-bold mb-8"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            Your Schedule
-          </motion.h1>
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!scheduleData) {
-    return (
-      <div className="bg-gray-900 min-h-screen min-w-screen text-white flex flex-col items-center pt-10">
-        <div className="max-w-7xl mx-auto">
-          <motion.h1
-            className="text-3xl font-bold mb-8"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            Your Schedule
-          </motion.h1>
-          <motion.div
-            className="bg-gray-700 rounded-lg shadow-md p-6"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            <p className="text-gray-400 mb-4">
-              No schedule data available. Please generate a schedule first.
-            </p>
-            <motion.button
-              onClick={() => navigate('/form')}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Generate Schedule
-            </motion.button>
-          </motion.div>
+      <div className="bg-gray-900 min-h-screen min-w-screen text-white flex flex-col items-center justify-center">
+        <div className="text-center">
+          {isGeneratingSchedule ? (
+            <>
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-400 mx-auto mb-4"></div>
+              <h2 className="text-xl font-semibold text-gray-300">
+                Generating your schedule...
+              </h2>
+              <p className="text-gray-400 mt-2">
+                This may take a few minutes as we optimize your course schedule
+              </p>
+            </>
+          ) : (
+            <>
+              <h2 className="text-2xl font-semibold text-gray-300 mb-6">
+                Welcome to BruinTracks
+              </h2>
+              <p className="text-gray-400 mb-8">
+                Generate your personalized course schedule to help plan your academic journey
+              </p>
+              <motion.button
+                onClick={() => navigate('/form')}
+                className="bg-blue-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Generate Schedule
+              </motion.button>
+            </>
+          )}
         </div>
       </div>
     );
