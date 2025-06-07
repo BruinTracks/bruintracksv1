@@ -29,10 +29,25 @@ export const validateQueryInput = (req, res, next) => {
 };
 
 export const processQuery = async (req, res) => {
-  const { question, chatHistory = [] } = req.body;
+  const { question, chatHistory = [], scheduleData } = req.body;
   console.log("Received query:", { question, chatHistory });
 
   try {
+    // Use schedule data from client if available, otherwise fetch from database
+    let userSchedule = scheduleData;
+    if (!userSchedule && req.user && req.user.id) {
+      const { data: scheduleData, error: scheduleError } = await supabase
+        .from("schedules")
+        .select("schedule")
+        .eq("user_id", req.user.id)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (!scheduleError && scheduleData && scheduleData.length > 0) {
+        userSchedule = scheduleData[0].schedule;
+      }
+    }
+
     // Build messages array with chat history
     const messages = [
       {
@@ -43,7 +58,15 @@ export const processQuery = async (req, res) => {
                  - General university questions
                  - Course recommendations
                  Use the available functions to help answer questions about courses, instructors, and schedules when relevant.
-                 For general questions, provide helpful responses without using specific functions.`,
+                 For general questions, provide helpful responses without using specific functions.
+                 
+                 ${
+                   userSchedule
+                     ? `The user's current schedule is: ${JSON.stringify(
+                         userSchedule
+                       )}`
+                     : ""
+                 }`,
       },
       ...chatHistory,
       { role: "user", content: question },
