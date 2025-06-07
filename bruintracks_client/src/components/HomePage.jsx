@@ -6,10 +6,14 @@ import { Chatbox } from './Chatbox.jsx';
 import { FullCoursePlan } from './FullCoursePlan.jsx';
 import { handleSignOut } from '../supabaseClient.js';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../AuthContext.jsx';
+import { supabase } from '../supabaseClient.js';
 import GoogleCalendarButton from './GoogleCalendarButton';
+import * as Tooltip from '@radix-ui/react-tooltip';
+import { useCourseDescription } from '../hooks/useCourseDescription';
 
-const CourseCard = ({ course, courseData, isFirstTerm }) => {
-  console.log("Rendering CourseCard for:", course, "with data:", courseData);
+export const CourseCard = ({ course, courseData, isFirstTerm }) => {
+  const { description, loading } = useCourseDescription(course);
 
   // Clean course name by replacing "|" with a space
   const cleanCourseName = (name) => {
@@ -19,16 +23,31 @@ const CourseCard = ({ course, courseData, isFirstTerm }) => {
   // For terms after the first one, show a simple card
   if (!isFirstTerm) {
     return (
-      <motion.div
-        className="bg-gray-700 rounded-lg shadow-md p-3 mb-4"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        whileHover={{ y: -5 }}
-      >
-        <h3 className="text-sm font-semibold text-white">
-          {course === 'FILLER' ? 'Filler Course' : cleanCourseName(course)}
-        </h3>
-      </motion.div>
+      <Tooltip.Provider>
+        <Tooltip.Root>
+          <Tooltip.Trigger asChild>
+            <motion.div
+              className="bg-gray-700 rounded-lg shadow-md p-3 mb-4"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              whileHover={{ y: -5 }}
+            >
+              <h3 className="text-sm font-semibold text-white">
+                {course === 'FILLER' ? 'Filler Course' : cleanCourseName(course)}
+              </h3>
+            </motion.div>
+          </Tooltip.Trigger>
+          <Tooltip.Portal>
+            <Tooltip.Content
+              className="bg-gray-800 text-white p-3 rounded-lg shadow-lg max-w-md text-sm"
+              sideOffset={5}
+            >
+              {loading ? 'Loading...' : description}
+              <Tooltip.Arrow className="fill-gray-800" />
+            </Tooltip.Content>
+          </Tooltip.Portal>
+        </Tooltip.Root>
+      </Tooltip.Provider>
     );
   }
 
@@ -49,17 +68,32 @@ const CourseCard = ({ course, courseData, isFirstTerm }) => {
   // If courseData is not an object or is null, return a simple card
   if (!courseData || typeof courseData !== 'object') {
     return (
-      <motion.div
-        className="bg-gray-700 rounded-lg shadow-md p-4 mb-4"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        whileHover={{ y: -5 }}
-      >
-        <h3 className="text-lg font-semibold text-white">
-          {cleanCourseName(course)}
-        </h3>
-        <p className="text-gray-400">Course details not available</p>
-      </motion.div>
+      <Tooltip.Provider>
+        <Tooltip.Root>
+          <Tooltip.Trigger asChild>
+            <motion.div
+              className="bg-gray-700 rounded-lg shadow-md p-4 mb-4"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              whileHover={{ y: -5 }}
+            >
+              <h3 className="text-lg font-semibold text-white">
+                {cleanCourseName(course)}
+              </h3>
+              <p className="text-gray-400">Course details not available</p>
+            </motion.div>
+          </Tooltip.Trigger>
+          <Tooltip.Portal>
+            <Tooltip.Content
+              className="bg-gray-800 text-white p-3 rounded-lg shadow-lg max-w-md text-sm"
+              sideOffset={5}
+            >
+              {loading ? 'Loading...' : description}
+              <Tooltip.Arrow className="fill-gray-800" />
+            </Tooltip.Content>
+          </Tooltip.Portal>
+        </Tooltip.Root>
+      </Tooltip.Provider>
     );
   }
 
@@ -81,204 +115,219 @@ const CourseCard = ({ course, courseData, isFirstTerm }) => {
   };
 
   return (
-    <motion.div
-      className="bg-gray-700 rounded-lg shadow-md p-4 mb-4"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -5 }}
-    >
-      <h3 className="text-lg font-semibold text-white mb-2">{cleanCourseName(course)}</h3>
+    <Tooltip.Provider>
+      <Tooltip.Root>
+        <Tooltip.Trigger asChild>
+          <motion.div
+            className="bg-gray-700 rounded-lg shadow-md p-4 mb-4"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ y: -5 }}
+          >
+            <h3 className="text-lg font-semibold text-white mb-2">{cleanCourseName(course)}</h3>
 
-      {/* Lecture Section */}
-      <div className="mb-3">
-        <h4 className="text-md font-medium text-blue-400">Lecture</h4>
-        <div className="ml-4">
-          {lecture.section && (
-            <p className="text-sm text-gray-400">Section: {lecture.section}</p>
-          )}
-          {lecture.instructors && (
-            <p className="text-sm text-gray-400">
-              Instructor:{' '}
-              {Array.isArray(lecture.instructors)
-                ? lecture.instructors.join(', ')
-                : lecture.instructors}
-            </p>
-          )}
-          {lecture.times &&
-            lecture.times.map((time, idx) => (
-              <div key={idx} className="text-sm text-gray-400">
-                {time.days && <p>Days: {time.days}</p>}
-                {time.start && time.end && <p>Time: {time.start} - {time.end}</p>}
-                {time.building && time.room && (
-                  <p>Location: {time.building} {time.room}</p>
+            {/* Lecture Section */}
+            <div className="mb-3">
+              <h4 className="text-md font-medium text-blue-400">Lecture</h4>
+              <div className="ml-4">
+                {lecture.section && (
+                  <p className="text-sm text-gray-400">Section: {lecture.section}</p>
+                )}
+                {lecture.instructors && (
+                  <p className="text-sm text-gray-400">
+                    Instructor:{' '}
+                    {Array.isArray(lecture.instructors)
+                      ? lecture.instructors.join(', ')
+                      : lecture.instructors}
+                  </p>
+                )}
+                {lecture.times &&
+                  lecture.times.map((time, idx) => (
+                    <div key={idx} className="text-sm text-gray-400">
+                      {time.days && <p>Days: {time.days}</p>}
+                      {time.start && time.end && <p>Time: {time.start} - {time.end}</p>}
+                      {time.building && time.room && (
+                        <p>Location: {time.building} {time.room}</p>
+                      )}
+                    </div>
+                  ))}
+                {lecture.enrollment_total !== undefined && (
+                  <div className="mt-2 space-y-2">
+                    {/* Enrollment Bar */}
+                    <div>
+                      <div className="flex justify-between text-xs text-gray-400 mb-1">
+                        <span>
+                          Enrollment: {lecture.enrollment_total}/{lecture.enrollment_cap}
+                        </span>
+                        <span>
+                          {Math.round(getEnrollmentPercentage(
+                            lecture.enrollment_total,
+                            lecture.enrollment_cap
+                          ))}
+                          %
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-600 rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full ${getEnrollmentColor(
+                            getEnrollmentPercentage(
+                              lecture.enrollment_total,
+                              lecture.enrollment_cap
+                            )
+                          )}`}
+                          style={{
+                            width: `${getEnrollmentPercentage(
+                              lecture.enrollment_total,
+                              lecture.enrollment_cap
+                            )}%`
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Waitlist Bar */}
+                    {lecture.waitlist_total > 0 && (
+                      <div>
+                        <div className="flex justify-between text-xs text-gray-400 mb-1">
+                          <span>
+                            Waitlist: {lecture.waitlist_total}/{lecture.waitlist_cap}
+                          </span>
+                          <span>
+                            {Math.round(getEnrollmentPercentage(
+                              lecture.waitlist_total,
+                              lecture.waitlist_cap
+                            ))}
+                            %
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-600 rounded-full h-2">
+                          <div
+                            className="h-2 rounded-full bg-purple-500"
+                            style={{
+                              width: `${getEnrollmentPercentage(
+                                lecture.waitlist_total,
+                                lecture.waitlist_cap
+                              )}%`
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
-            ))}
-          {lecture.enrollment_total !== undefined && (
-            <div className="mt-2 space-y-2">
-              {/* Enrollment Bar */}
-              <div>
-                <div className="flex justify-between text-xs text-gray-400 mb-1">
-                  <span>
-                    Enrollment: {lecture.enrollment_total}/{lecture.enrollment_cap}
-                  </span>
-                  <span>
-                    {Math.round(getEnrollmentPercentage(
-                      lecture.enrollment_total,
-                      lecture.enrollment_cap
-                    ))}
-                    %
-                  </span>
-                </div>
-                <div className="w-full bg-gray-600 rounded-full h-2">
-                  <div
-                    className={`h-2 rounded-full ${getEnrollmentColor(
-                      getEnrollmentPercentage(
-                        lecture.enrollment_total,
-                        lecture.enrollment_cap
-                      )
-                    )}`}
-                    style={{
-                      width: `${getEnrollmentPercentage(
-                        lecture.enrollment_total,
-                        lecture.enrollment_cap
-                      )}%`
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Waitlist Bar */}
-              {lecture.waitlist_total > 0 && (
-                <div>
-                  <div className="flex justify-between text-xs text-gray-400 mb-1">
-                    <span>
-                      Waitlist: {lecture.waitlist_total}/{lecture.waitlist_cap}
-                    </span>
-                    <span>
-                      {Math.round(getEnrollmentPercentage(
-                        lecture.waitlist_total,
-                        lecture.waitlist_cap
-                      ))}
-                      %
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-600 rounded-full h-2">
-                    <div
-                      className="h-2 rounded-full bg-purple-500"
-                      style={{
-                        width: `${getEnrollmentPercentage(
-                          lecture.waitlist_total,
-                          lecture.waitlist_cap
-                        )}%`
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* Discussion Section */}
-      {discussion && (
-        <div>
-          <h4 className="text-md font-medium text-blue-400">Discussion</h4>
-          <div className="ml-4">
-            {discussion.section && (
-              <p className="text-sm text-gray-400">Section: {discussion.section}</p>
-            )}
-            {discussion.instructors && (
-              <p className="text-sm text-gray-400">
-                Instructor:{' '}
-                {Array.isArray(discussion.instructors)
-                  ? discussion.instructors.join(', ')
-                  : discussion.instructors}
-              </p>
-            )}
-            {discussion.times &&
-              discussion.times.map((time, idx) => (
-                <div key={idx} className="text-sm text-gray-400">
-                  {time.days && <p>Days: {time.days}</p>}
-                  {time.start && time.end && <p>Time: {time.start} - {time.end}</p>}
-                  {time.building && time.room && (
-                    <p>Location: {time.building} {time.room}</p>
+            {/* Discussion Section */}
+            {discussion && (
+              <div>
+                <h4 className="text-md font-medium text-blue-400">Discussion</h4>
+                <div className="ml-4">
+                  {discussion.section && (
+                    <p className="text-sm text-gray-400">Section: {discussion.section}</p>
+                  )}
+                  {discussion.instructors && (
+                    <p className="text-sm text-gray-400">
+                      Instructor:{' '}
+                      {Array.isArray(discussion.instructors)
+                        ? discussion.instructors.join(', ')
+                        : discussion.instructors}
+                    </p>
+                  )}
+                  {discussion.times &&
+                    discussion.times.map((time, idx) => (
+                      <div key={idx} className="text-sm text-gray-400">
+                        {time.days && <p>Days: {time.days}</p>}
+                        {time.start && time.end && <p>Time: {time.start} - {time.end}</p>}
+                        {time.building && time.room && (
+                          <p>Location: {time.building} {time.room}</p>
+                        )}
+                      </div>
+                    ))}
+                  {discussion.enrollment_total !== undefined && (
+                    <div className="mt-2 space-y-2">
+                      {/* Enrollment Bar */}
+                      <div>
+                        <div className="flex justify-between text-xs text-gray-400 mb-1">
+                          <span>
+                            Enrollment: {discussion.enrollment_total}/{discussion.enrollment_cap}
+                          </span>
+                          <span>
+                            {Math.round(getEnrollmentPercentage(
+                              discussion.enrollment_total,
+                              discussion.enrollment_cap
+                            ))}
+                            %
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-600 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full ${getEnrollmentColor(
+                              getEnrollmentPercentage(
+                                discussion.enrollment_total,
+                                discussion.enrollment_cap
+                              )
+                            )}`}
+                            style={{
+                              width: `${getEnrollmentPercentage(
+                                discussion.enrollment_total,
+                                discussion.enrollment_cap
+                              )}%`
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Waitlist Bar */}
+                      {discussion.waitlist_total > 0 && (
+                        <div>
+                          <div className="flex justify-between text-xs text-gray-400 mb-1">
+                            <span>
+                              Waitlist: {discussion.waitlist_total}/{discussion.waitlist_cap}
+                            </span>
+                            <span>
+                              {Math.round(getEnrollmentPercentage(
+                                discussion.waitlist_total,
+                                discussion.waitlist_cap
+                              ))}
+                              %
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-600 rounded-full h-2">
+                            <div
+                              className="h-2 rounded-full bg-purple-500"
+                              style={{
+                                width: `${getEnrollmentPercentage(
+                                  discussion.waitlist_total,
+                                  discussion.waitlist_cap
+                                )}%`
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
-              ))}
-            {discussion.enrollment_total !== undefined && (
-              <div className="mt-2 space-y-2">
-                {/* Enrollment Bar */}
-                <div>
-                  <div className="flex justify-between text-xs text-gray-400 mb-1">
-                    <span>
-                      Enrollment: {discussion.enrollment_total}/{discussion.enrollment_cap}
-                    </span>
-                    <span>
-                      {Math.round(getEnrollmentPercentage(
-                        discussion.enrollment_total,
-                        discussion.enrollment_cap
-                      ))}
-                      %
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-600 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full ${getEnrollmentColor(
-                        getEnrollmentPercentage(
-                          discussion.enrollment_total,
-                          discussion.enrollment_cap
-                        )
-                      )}`}
-                      style={{
-                        width: `${getEnrollmentPercentage(
-                          discussion.enrollment_total,
-                          discussion.enrollment_cap
-                        )}%`
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Waitlist Bar */}
-                {discussion.waitlist_total > 0 && (
-                  <div>
-                    <div className="flex justify-between text-xs text-gray-400 mb-1">
-                      <span>
-                        Waitlist: {discussion.waitlist_total}/{discussion.waitlist_cap}
-                      </span>
-                      <span>
-                        {Math.round(getEnrollmentPercentage(
-                          discussion.waitlist_total,
-                          discussion.waitlist_cap
-                        ))}
-                        %
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-600 rounded-full h-2">
-                      <div
-                        className="h-2 rounded-full bg-purple-500"
-                        style={{
-                          width: `${getEnrollmentPercentage(
-                            discussion.waitlist_total,
-                            discussion.waitlist_cap
-                          )}%`
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
             )}
-          </div>
-        </div>
-      )}
-    </motion.div>
+          </motion.div>
+        </Tooltip.Trigger>
+        <Tooltip.Portal>
+          <Tooltip.Content
+            className="bg-gray-800 text-white p-3 rounded-lg shadow-lg max-w-md text-sm"
+            sideOffset={5}
+          >
+            {loading ? 'Loading...' : description}
+            <Tooltip.Arrow className="fill-gray-800" />
+          </Tooltip.Content>
+        </Tooltip.Portal>
+      </Tooltip.Root>
+    </Tooltip.Provider>
   );
 };
 
-const QuarterSchedule = ({ quarter, courses, isFirstTerm }) => {
+export const QuarterSchedule = ({ quarter, courses, isFirstTerm }) => {
   console.log(`Rendering QuarterSchedule for ${quarter}:`, courses);
 
   // If courses is not an array or object, return null
@@ -324,7 +373,7 @@ const QuarterSchedule = ({ quarter, courses, isFirstTerm }) => {
   );
 };
 
-const ScheduleSummary = ({ scheduleData }) => {
+export const ScheduleSummary = ({ scheduleData }) => {
   console.log("Rendering ScheduleSummary with data:", scheduleData);
 
   const totalCourses = Object.values(scheduleData).reduce((acc, quarter) => {
@@ -648,6 +697,7 @@ export const WeeklyCalendar = ({ courses }) => {
 
 export const HomePage = () => {
   const navigate = useNavigate();
+  const { session } = useAuth();
   const [scheduleData, setScheduleData] = useState(null);
   const [unscheduledCourses, setUnscheduledCourses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -666,34 +716,76 @@ export const HomePage = () => {
   };
 
   useEffect(() => {
-    console.log("HomePage component mounted");
+    console.log("HomePage component mounted");    
+    // Helper function to convert quarter string to sortable number
+    const quarterToSortValue = (quarterStr) => {
+      const [quarter, yearStr] = quarterStr.split(' ');
+      const year = parseInt(yearStr);
+      // Adjust year for Fall quarter since it comes before Winter/Spring of next year
+      // e.g., Fall 2024 should come before Winter 2025
+      if (quarter === 'Fall') {
+        return year * 10;
+      } else if (quarter === 'Winter') {
+        return (year - 1) * 10 + 1;
+      } else if (quarter === 'Spring') {
+        return (year - 1) * 10 + 2;
+      } else { // Summer
+        return (year - 1) * 10 + 3;
+      }
+    };
 
-    const loadScheduleData = () => {
-      console.log("Starting to load schedule data from localStorage...");
-      const storedSchedule = localStorage.getItem('scheduleData');
+    // Helper function to sort quarters
+    const sortQuarters = (schedule) => {
+      const sortedEntries = Object.entries(schedule).sort((a, b) => {
+        return quarterToSortValue(a[0]) - quarterToSortValue(b[0]);
+      });
+      return Object.fromEntries(sortedEntries);
+    };
 
-      if (!storedSchedule) {
-        console.log("No schedule data found in localStorage");
+    const loadScheduleData = async () => {
+      console.log("Starting to fetch most recent schedule from Supabase...");
+      
+      if (!session?.user?.id) {
+        console.log("No user session found");
         setLoading(false);
         return;
       }
 
-      console.log("Raw data from localStorage:", storedSchedule);
-
       try {
-        const data = JSON.parse(storedSchedule);
-        console.log("Successfully parsed schedule data:", data);
+        // Fetch the most recent schedule for the current user
+        const { data, error } = await supabase
+          .from('schedules')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
 
-        if (!data.schedule || !data.schedule.schedule) {
-          console.error(
-            "Schedule data is missing the 'schedule' property:",
-            data
-          );
+        if (error) {
+          console.error("Error fetching schedule:", error);
           setLoading(false);
           return;
         }
 
-        // Pull least_courses_per_term from data.preferences (not data.schedule.preferences)
+        if (!data) {
+          console.log("No schedule found for user");
+          setLoading(false);
+          return;
+        }
+
+        console.log("Successfully fetched schedule data:", data);
+        
+        // Extract schedule data and note from the response
+        const note = data.schedule?.note;
+        const actualSchedule = data.schedule.schedule;
+
+        if (!actualSchedule) {
+          console.error("Schedule data is missing the 'schedule' property:", data);
+          setLoading(false);
+          return;
+        }
+
+ // Pull least_courses_per_term from data.preferences (not data.schedule.preferences)
         if (
           data.preferences &&
           typeof data.preferences.least_courses_per_term === 'number'
@@ -702,7 +794,6 @@ export const HomePage = () => {
         }
 
         // Get the actual schedule object
-        const actualSchedule = data.schedule.schedule;
         console.log("Actual schedule data:", actualSchedule);
 
         // Validate and clean the schedule data
@@ -754,30 +845,32 @@ export const HomePage = () => {
           }
         });
 
-        console.log("Cleaned schedule data:", cleanedSchedule);
-        setScheduleData(cleanedSchedule);
+        // Sort the quarters
+        const sortedSchedule = sortQuarters(cleanedSchedule);
+        console.log("Sorted and cleaned schedule data:", sortedSchedule);
+        setScheduleData(sortedSchedule);
 
-        if (data.schedule.note) {
-          console.log("Found note in schedule data:", data.schedule.note);
-          // Parse the note to get unscheduled courses with their reasons
-          const unscheduled = data.schedule.note
+        if (note) {
+          console.log("Found note in schedule data:", note);
+          // Parse the note to get unscheduled courses
+          const unscheduled = note
             .replace('Unable to schedule: ', '')
             .split('; ')
             .map((course) => course.trim());
+
           console.log("Parsed unscheduled courses:", unscheduled);
           setUnscheduledCourses(unscheduled);
         }
       } catch (error) {
-        console.error("Error parsing schedule data:", error);
+        console.error("Error loading schedule:", error);
         console.error("Error stack:", error.stack);
-        console.error("Raw data that caused the error:", storedSchedule);
       } finally {
         setLoading(false);
       }
     };
 
     loadScheduleData();
-  }, [leastCoursesPerTerm]);
+  }, [session, leastCoursesPerTerm]);
 
   // Add a debug button to reload schedule data
   const reloadSchedule = () => {
@@ -915,12 +1008,20 @@ export const HomePage = () => {
           <div className="flex gap-4">
             <GoogleCalendarButton scheduleData={scheduleData} />
             <motion.button
-              onClick={reloadSchedule}
+              onClick={() => navigate('/form')}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              Reload Schedule
+              Take me back to the form
+            </motion.button>
+            <motion.button
+              onClick={() => navigate('/saved-schedules')}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              View Saved Schedules
             </motion.button>
             <motion.button
               onClick={onSignOut}
@@ -936,13 +1037,17 @@ export const HomePage = () => {
         {/* Schedule Summary */}
         <ScheduleSummary scheduleData={scheduleData} />
 
-        {/* Weekly Calendar (for first term only) */}
+    {/* Weekly Calendar (for first term only) */}
+
         {scheduleData && Object.entries(scheduleData)[0] && (
-          <WeeklyCalendar courses={Object.entries(scheduleData)[0][1]} />
+          <WeeklyCalendar 
+            courses={Object.entries(scheduleData)[0][1]} 
+            key={Object.entries(scheduleData)[0][0]} // Add key to force re-render when quarter changes
+          />
         )}
 
         {/* Quarter Schedules */}
-        {Object.entries(scheduleData)
+        {scheduleData && Object.entries(scheduleData)
           .filter(([_, courses]) => {
             if (Array.isArray(courses)) {
               return courses.length > 0;

@@ -141,19 +141,28 @@ export const getCoursesToSchedule = async (req, res) => {
     const formattedTranscript = {};
     if (Array.isArray(transcript)) {
       transcript.forEach((course) => {
-        const [subject, number] = course.split(/\s+/);
-        if (subject && number) {
+        // Split on last space to separate number from subject
+        const lastSpaceIndex = course.lastIndexOf(' ');
+        if (lastSpaceIndex !== -1) {
+          const subject = course.substring(0, lastSpaceIndex);
+          const number = course.substring(lastSpaceIndex + 1);
           formattedTranscript[`${subject}|${number}`] = null;
         }
       });
     } else if (typeof transcript === "object") {
       Object.entries(transcript).forEach(([course, grade]) => {
-        const [subject, number] = course.split(/\s+/);
-        if (subject && number) {
+        // Split on last space to separate number from subject
+        const lastSpaceIndex = course.lastIndexOf(' ');
+        if (lastSpaceIndex !== -1) {
+          const subject = course.substring(0, lastSpaceIndex);
+          const number = course.substring(lastSpaceIndex + 1);
+          console.log("SUBJECT:", subject);
+          console.log("NUMBER:", number);
           formattedTranscript[`${subject}|${number}`] = grade;
         }
       });
     }
+
     console.log("Formatted transcript:", formattedTranscript);
 
     // Handle nested array if present
@@ -231,20 +240,18 @@ export const getCoursesToSchedule = async (req, res) => {
               console.log("Adding courses:", courses);
 
               courses.forEach((course) => {
-		if (course.includes("RESOLVE"))
-		      allCourses.add(course);
-		else if (typeof course === "string" && course.trim()) {
-                  // Handle multi-word subjects like "COM SCI" and "EC ENGR"
-                  const parts = course.trim().split(/\s+/);
-                  if (parts.length >= 2) {
-                    const number = parts.pop(); // Get the last part as the number
-                    const subject = parts.join(" "); // Join the rest as the subject
-                    if (subject && number) {
-                      const formattedCourse = `${subject}|${number}`;
-                      // Only add if not in transcript
-                      if (!formattedTranscript[formattedCourse]) {
-                        allCourses.add(formattedCourse);
-                      }
+                if (course.includes("RESOLVE")) {
+                  allCourses.add(course);
+                } else if (typeof course === "string" && course.trim()) {
+                  // Handle multi-word subjects by splitting on the last space
+                  const lastSpaceIndex = course.trim().lastIndexOf(' ');
+                  if (lastSpaceIndex !== -1) {
+                    const subject = course.substring(0, lastSpaceIndex);
+                    const number = course.substring(lastSpaceIndex + 1);
+                    const formattedCourse = `${subject}|${number}`;
+                    // Only add if not in transcript
+                    if (!formattedTranscript[formattedCourse]) {
+                      allCourses.add(formattedCourse);
                     }
                   }
                 }

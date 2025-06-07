@@ -10,11 +10,34 @@ from supabase import create_client, Client
 load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
+
+# Print environment variables for debugging
+print("Environment variables:")
+print("SUPABASE_URL:", SUPABASE_URL)
+print("SUPABASE_KEY:", SUPABASE_KEY)
+
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise RuntimeError("Missing SUPABASE_URL or SUPABASE_ANON_KEY in environment")
 
-# Initialize Supabase client
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+try:
+    # Initialize Supabase client
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+except Exception as e:
+    print("Error initializing Supabase client:", str(e))
+    raise
+
+# Get schedule and transcript from environment
+schedule_json = os.getenv("SCHEDULE")
+transcript_json = os.getenv("TRANSCRIPT")
+
+if not schedule_json or not transcript_json:
+    raise RuntimeError("Missing SCHEDULE or TRANSCRIPT in environment")
+
+try:
+    schedule = json.loads(schedule_json)
+    transcript = json.loads(transcript_json)
+except json.JSONDecodeError as e:
+    raise RuntimeError(f"Failed to parse JSON from environment: {e}")
 
 def to_dnf(node: Dict) -> List[List[Dict]]:
     """Convert a boolean expression tree to DNF (Disjunctive Normal Form)"""
@@ -322,4 +345,5 @@ def test_get_elective_options():
     print("Elective Options:", json.dumps(result_2, indent=2))
 
 if __name__ == "__main__":
-    test_get_elective_options() 
+    result = get_elective_options(schedule, transcript)
+    print(json.dumps(result, indent=2)) 

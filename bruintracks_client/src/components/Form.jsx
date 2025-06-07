@@ -876,27 +876,38 @@ const SummaryView = ({ data = {}, handleBackClick = () => {}, setStep = () => {}
       return;
     }
 
-    const { error } = await supabase.from('profiles').insert([
-      {
-        profile_id: session.user.id,
-        complete: true,
-        full_name: 'hi',
-        created_at: 'hi'
-      }
-    ]);
+    // Check if profile already exists
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('profile_id')
+      .eq('profile_id', session.user.id)
+      .single();
 
-    if (error) {
-      console.error(error);
-    } else {
-      navigate('/Home');
+    // Only create profile if it doesn't exist
+    if (!existingProfile) {
+      const { error } = await supabase.from('profiles').insert([
+        {
+          profile_id: session.user.id,
+          complete: true,
+          full_name: "hi",
+          created_at: "hi"
+        },
+      ]);
+
+      if (error) {
+        console.error(error);
+        return;
+      }
     }
+
+    navigate('/Home');
   };
 
   const handleGenerateSchedule = async () => {
     try {
-      console.log('Starting schedule generation...');
-      console.log('Current session:', session); // Debug log
-
+      handleCreateProfile();
+      console.log("Starting schedule generation...");
+      console.log("Current session:", session); // Debug log
       // Get selected majors
       const selectedMajors = [data.majorName];
       if (data.doubleMajorName) {
@@ -956,41 +967,47 @@ const SummaryView = ({ data = {}, handleBackClick = () => {}, setStep = () => {}
         // Convert from "COM SCI|31" format to "COM SCI 31" format
         return course.replace('|', ' ');
       });
-      console.log('Completed courses:', completedCourses);
+
+      const formattedTranscript = Object.fromEntries(
+        Object.entries(data.transcript || {}).map(([course, grade]) => {
+          const parts = course.split(' ');
+          const catalogNumber = parts.pop();
+          const subject = parts.join(' ');
+          return [`${subject}|${catalogNumber}`, grade];
+        })
+      );
+      console.log("Completed courses:", formattedTranscript);
 
       console.log('Calling get-courses-to-schedule endpoint...');
       // Call the get-courses-to-schedule endpoint
-      const response = await fetch(
-        'http://localhost:3000/courses/get-courses-to-schedule',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`
-          },
-          body: JSON.stringify({
-            jsonData: processedRequirements,
-            transcript: completedCourses,
-            grad_year: data.gradYear,
-            grad_quarter: data.gradQuarter,
-            preferences: {
-              allow_warnings: data.allowWarnings,
-              allow_primary_conflicts: data.allowPrimaryConflicts,
-              allow_secondary_conflicts: data.allowSecondaryConflicts,
-              pref_priority: data.prefPriority,
-              pref_earliest: data.earliestClassTime,
-              pref_latest: data.latestClassTime,
-              pref_no_days: data.prefNoDays,
-              pref_buildings: data.prefBuildings,
-              pref_instructors: data.prefInstructors,
-              max_courses_per_term: data.maxCoursesPerTerm,
-              least_courses_per_term: data.leastCoursesPerTerm,
-              tech_breadth: data.techBreadth,
-              second_tech_breadth: data.secondTechBreadth
-            }
-          })
-        }
-      );
+      const response = await fetch('http://localhost:3000/courses/get-courses-to-schedule', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ 
+          jsonData: processedRequirements,
+          transcript: data.transcript,
+          grad_year: data.gradYear,
+          grad_quarter: data.gradQuarter,
+          preferences: {
+            allow_warnings: data.allowWarnings,
+            allow_primary_conflicts: data.allowPrimaryConflicts,
+            allow_secondary_conflicts: data.allowSecondaryConflicts,
+            pref_priority: data.prefPriority,
+            pref_earliest: data.earliestClassTime,
+            pref_latest: data.latestClassTime,
+            pref_no_days: data.prefNoDays,
+            pref_buildings: data.prefBuildings,
+            pref_instructors: data.prefInstructors,
+            max_courses_per_term: data.maxCoursesPerTerm,
+            least_courses_per_term: data.leastCoursesPerTerm,
+            tech_breadth: data.techBreadth,
+            second_tech_breadth: data.secondTechBreadth
+          }
+        }),
+      });
 
       if (!response.ok) {
         const errorText = await response.text();
