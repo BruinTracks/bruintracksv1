@@ -142,7 +142,7 @@ export const processQuery = async (req, res) => {
           
           If the data appears incomplete or limited, let the user know it is a **sample** or **partial listing**, and invite them to narrow their query (e.g., by department, keyword, or quarter).
           
-          Always keep your response under 3 sentences, and consider the chat history context.`,
+          Always keep your response under 3 sentences, and consider the chat history context. If you are providing filler courses ensure that they have NO enforced requisites or requisites in the description of that course. Don't mention courses that don't fit this requirement. Only list those that do`,
         },
         ...chatHistory,
         {

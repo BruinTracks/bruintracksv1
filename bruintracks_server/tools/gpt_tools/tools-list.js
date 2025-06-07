@@ -50,4 +50,38 @@ export const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "get_courses_by_instructor",
+      description: "List all courses taught by a specific instructor.",
+      parameters: {
+        type: "object",
+        properties: {
+          instructor_name: {
+            type: "string",
+            description: "The full name of the instructor (e.g., 'Smallberg')",
+          },
+        },
+        required: ["instructor_name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_courses_by_interest_no_prereqs",
+      description: "Retrieve courses matching a given interest area with no prerequites. this should be called when the user asks for a filler course in a certain subject area and should exclude any courses the user already has in their schedule.",
+      parameters: {
+        type: "object",
+        properties: {
+          interest_area: {
+            type: "string",
+            description: "The interest area to search for (e.g., 'robots')",
+          },
+        },
+        required: ["interest_area"],
+      },
+    },
+  },
 ];
