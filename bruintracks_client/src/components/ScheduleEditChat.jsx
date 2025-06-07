@@ -71,11 +71,12 @@ export const ScheduleEditChat = ({ scheduleData, onScheduleUpdate }) => {
       if (data.schedule) {
         console.log("Received Updated Schedule:", JSON.stringify(data.schedule, null, 2));
         
-        const storedData = JSON.parse(localStorage.getItem('scheduleData'));
-        console.log("Current localStorage Schedule:", JSON.stringify(storedData.schedule.schedule, null, 2));
+       // const storedData = JSON.parse(localStorage.getItem('scheduleData'));
+       //console.log("Current localStorage Schedule:", JSON.stringify(storedData.schedule.schedule, null, 2));
         
         // Clean up the schedule by handling FILLER courses
         const cleanedSchedule = {};
+
         Object.entries(data.schedule).forEach(([term, courses]) => {
           if (Array.isArray(courses)) {
             // For array format, filter out empty strings and undefined values
@@ -95,11 +96,11 @@ export const ScheduleEditChat = ({ scheduleData, onScheduleUpdate }) => {
         
         console.log("Cleaned Schedule:", JSON.stringify(cleanedSchedule, null, 2));
         
-        storedData.schedule.schedule = cleanedSchedule;
-        localStorage.setItem('scheduleData', JSON.stringify(storedData));
+        //storedData.schedule.schedule = cleanedSchedule;
+        //localStorage.setItem('scheduleData', JSON.stringify(storedData));
         
-        console.log("Updated localStorage Schedule:", JSON.stringify(storedData.schedule.schedule, null, 2));
-        console.log("Reloading page to reflect changes...");
+        //console.log("Updated localStorage Schedule:", JSON.stringify(storedData.schedule.schedule, null, 2));
+        //console.log("Reloading page to reflect changes...");
         
         // Trigger a page reload to reflect the schedule changes
         //window.location.reload();

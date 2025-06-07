@@ -1113,7 +1113,7 @@ export const HomePage = () => {
         )}
 
         {/* Floating Chat Buttons */}
-        <div className="fixed bottom-6 flex justify-between w-full px-6">
+        <div className="fixed bottom-6 right-5 flex justify-between w-full px-6">
           {/* Edit Button (Left Side) */}
           <button
             onClick={handleScheduleEditorClick}
