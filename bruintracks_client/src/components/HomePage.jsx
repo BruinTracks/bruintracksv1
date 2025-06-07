@@ -9,9 +9,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext.jsx';
 import { supabase } from '../supabaseClient.js';
 import GoogleCalendarButton from './GoogleCalendarButton';
+import * as Tooltip from '@radix-ui/react-tooltip';
+import { useCourseDescription } from '../hooks/useCourseDescription';
 
 export const CourseCard = ({ course, courseData, isFirstTerm }) => {
-  console.log("Rendering CourseCard for:", course, "with data:", courseData);
+  const { description, loading } = useCourseDescription(course);
 
   // Clean course name by replacing "|" with a space
   const cleanCourseName = (name) => {
@@ -21,16 +23,31 @@ export const CourseCard = ({ course, courseData, isFirstTerm }) => {
   // For terms after the first one, show a simple card
   if (!isFirstTerm) {
     return (
-      <motion.div
-        className="bg-gray-700 rounded-lg shadow-md p-3 mb-4"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        whileHover={{ y: -5 }}
-      >
-        <h3 className="text-sm font-semibold text-white">
-          {course === 'FILLER' ? 'Filler Course' : cleanCourseName(course)}
-        </h3>
-      </motion.div>
+      <Tooltip.Provider>
+        <Tooltip.Root>
+          <Tooltip.Trigger asChild>
+            <motion.div
+              className="bg-gray-700 rounded-lg shadow-md p-3 mb-4"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              whileHover={{ y: -5 }}
+            >
+              <h3 className="text-sm font-semibold text-white">
+                {course === 'FILLER' ? 'Filler Course' : cleanCourseName(course)}
+              </h3>
+            </motion.div>
+          </Tooltip.Trigger>
+          <Tooltip.Portal>
+            <Tooltip.Content
+              className="bg-gray-800 text-white p-3 rounded-lg shadow-lg max-w-md text-sm"
+              sideOffset={5}
+            >
+              {loading ? 'Loading...' : description}
+              <Tooltip.Arrow className="fill-gray-800" />
+            </Tooltip.Content>
+          </Tooltip.Portal>
+        </Tooltip.Root>
+      </Tooltip.Provider>
     );
   }
 
@@ -51,17 +68,32 @@ export const CourseCard = ({ course, courseData, isFirstTerm }) => {
   // If courseData is not an object or is null, return a simple card
   if (!courseData || typeof courseData !== 'object') {
     return (
-      <motion.div
-        className="bg-gray-700 rounded-lg shadow-md p-4 mb-4"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        whileHover={{ y: -5 }}
-      >
-        <h3 className="text-lg font-semibold text-white">
-          {cleanCourseName(course)}
-        </h3>
-        <p className="text-gray-400">Course details not available</p>
-      </motion.div>
+      <Tooltip.Provider>
+        <Tooltip.Root>
+          <Tooltip.Trigger asChild>
+            <motion.div
+              className="bg-gray-700 rounded-lg shadow-md p-4 mb-4"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              whileHover={{ y: -5 }}
+            >
+              <h3 className="text-lg font-semibold text-white">
+                {cleanCourseName(course)}
+              </h3>
+              <p className="text-gray-400">Course details not available</p>
+            </motion.div>
+          </Tooltip.Trigger>
+          <Tooltip.Portal>
+            <Tooltip.Content
+              className="bg-gray-800 text-white p-3 rounded-lg shadow-lg max-w-md text-sm"
+              sideOffset={5}
+            >
+              {loading ? 'Loading...' : description}
+              <Tooltip.Arrow className="fill-gray-800" />
+            </Tooltip.Content>
+          </Tooltip.Portal>
+        </Tooltip.Root>
+      </Tooltip.Provider>
     );
   }
 
@@ -83,200 +115,215 @@ export const CourseCard = ({ course, courseData, isFirstTerm }) => {
   };
 
   return (
-    <motion.div
-      className="bg-gray-700 rounded-lg shadow-md p-4 mb-4"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -5 }}
-    >
-      <h3 className="text-lg font-semibold text-white mb-2">{cleanCourseName(course)}</h3>
+    <Tooltip.Provider>
+      <Tooltip.Root>
+        <Tooltip.Trigger asChild>
+          <motion.div
+            className="bg-gray-700 rounded-lg shadow-md p-4 mb-4"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ y: -5 }}
+          >
+            <h3 className="text-lg font-semibold text-white mb-2">{cleanCourseName(course)}</h3>
 
-      {/* Lecture Section */}
-      <div className="mb-3">
-        <h4 className="text-md font-medium text-blue-400">Lecture</h4>
-        <div className="ml-4">
-          {lecture.section && (
-            <p className="text-sm text-gray-400">Section: {lecture.section}</p>
-          )}
-          {lecture.instructors && (
-            <p className="text-sm text-gray-400">
-              Instructor:{' '}
-              {Array.isArray(lecture.instructors)
-                ? lecture.instructors.join(', ')
-                : lecture.instructors}
-            </p>
-          )}
-          {lecture.times &&
-            lecture.times.map((time, idx) => (
-              <div key={idx} className="text-sm text-gray-400">
-                {time.days && <p>Days: {time.days}</p>}
-                {time.start && time.end && <p>Time: {time.start} - {time.end}</p>}
-                {time.building && time.room && (
-                  <p>Location: {time.building} {time.room}</p>
+            {/* Lecture Section */}
+            <div className="mb-3">
+              <h4 className="text-md font-medium text-blue-400">Lecture</h4>
+              <div className="ml-4">
+                {lecture.section && (
+                  <p className="text-sm text-gray-400">Section: {lecture.section}</p>
+                )}
+                {lecture.instructors && (
+                  <p className="text-sm text-gray-400">
+                    Instructor:{' '}
+                    {Array.isArray(lecture.instructors)
+                      ? lecture.instructors.join(', ')
+                      : lecture.instructors}
+                  </p>
+                )}
+                {lecture.times &&
+                  lecture.times.map((time, idx) => (
+                    <div key={idx} className="text-sm text-gray-400">
+                      {time.days && <p>Days: {time.days}</p>}
+                      {time.start && time.end && <p>Time: {time.start} - {time.end}</p>}
+                      {time.building && time.room && (
+                        <p>Location: {time.building} {time.room}</p>
+                      )}
+                    </div>
+                  ))}
+                {lecture.enrollment_total !== undefined && (
+                  <div className="mt-2 space-y-2">
+                    {/* Enrollment Bar */}
+                    <div>
+                      <div className="flex justify-between text-xs text-gray-400 mb-1">
+                        <span>
+                          Enrollment: {lecture.enrollment_total}/{lecture.enrollment_cap}
+                        </span>
+                        <span>
+                          {Math.round(getEnrollmentPercentage(
+                            lecture.enrollment_total,
+                            lecture.enrollment_cap
+                          ))}
+                          %
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-600 rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full ${getEnrollmentColor(
+                            getEnrollmentPercentage(
+                              lecture.enrollment_total,
+                              lecture.enrollment_cap
+                            )
+                          )}`}
+                          style={{
+                            width: `${getEnrollmentPercentage(
+                              lecture.enrollment_total,
+                              lecture.enrollment_cap
+                            )}%`
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Waitlist Bar */}
+                    {lecture.waitlist_total > 0 && (
+                      <div>
+                        <div className="flex justify-between text-xs text-gray-400 mb-1">
+                          <span>
+                            Waitlist: {lecture.waitlist_total}/{lecture.waitlist_cap}
+                          </span>
+                          <span>
+                            {Math.round(getEnrollmentPercentage(
+                              lecture.waitlist_total,
+                              lecture.waitlist_cap
+                            ))}
+                            %
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-600 rounded-full h-2">
+                          <div
+                            className="h-2 rounded-full bg-purple-500"
+                            style={{
+                              width: `${getEnrollmentPercentage(
+                                lecture.waitlist_total,
+                                lecture.waitlist_cap
+                              )}%`
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
-            ))}
-          {lecture.enrollment_total !== undefined && (
-            <div className="mt-2 space-y-2">
-              {/* Enrollment Bar */}
-              <div>
-                <div className="flex justify-between text-xs text-gray-400 mb-1">
-                  <span>
-                    Enrollment: {lecture.enrollment_total}/{lecture.enrollment_cap}
-                  </span>
-                  <span>
-                    {Math.round(getEnrollmentPercentage(
-                      lecture.enrollment_total,
-                      lecture.enrollment_cap
-                    ))}
-                    %
-                  </span>
-                </div>
-                <div className="w-full bg-gray-600 rounded-full h-2">
-                  <div
-                    className={`h-2 rounded-full ${getEnrollmentColor(
-                      getEnrollmentPercentage(
-                        lecture.enrollment_total,
-                        lecture.enrollment_cap
-                      )
-                    )}`}
-                    style={{
-                      width: `${getEnrollmentPercentage(
-                        lecture.enrollment_total,
-                        lecture.enrollment_cap
-                      )}%`
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Waitlist Bar */}
-              {lecture.waitlist_total > 0 && (
-                <div>
-                  <div className="flex justify-between text-xs text-gray-400 mb-1">
-                    <span>
-                      Waitlist: {lecture.waitlist_total}/{lecture.waitlist_cap}
-                    </span>
-                    <span>
-                      {Math.round(getEnrollmentPercentage(
-                        lecture.waitlist_total,
-                        lecture.waitlist_cap
-                      ))}
-                      %
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-600 rounded-full h-2">
-                    <div
-                      className="h-2 rounded-full bg-purple-500"
-                      style={{
-                        width: `${getEnrollmentPercentage(
-                          lecture.waitlist_total,
-                          lecture.waitlist_cap
-                        )}%`
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* Discussion Section */}
-      {discussion && (
-        <div>
-          <h4 className="text-md font-medium text-blue-400">Discussion</h4>
-          <div className="ml-4">
-            {discussion.section && (
-              <p className="text-sm text-gray-400">Section: {discussion.section}</p>
-            )}
-            {discussion.instructors && (
-              <p className="text-sm text-gray-400">
-                Instructor:{' '}
-                {Array.isArray(discussion.instructors)
-                  ? discussion.instructors.join(', ')
-                  : discussion.instructors}
-              </p>
-            )}
-            {discussion.times &&
-              discussion.times.map((time, idx) => (
-                <div key={idx} className="text-sm text-gray-400">
-                  {time.days && <p>Days: {time.days}</p>}
-                  {time.start && time.end && <p>Time: {time.start} - {time.end}</p>}
-                  {time.building && time.room && (
-                    <p>Location: {time.building} {time.room}</p>
+            {/* Discussion Section */}
+            {discussion && (
+              <div>
+                <h4 className="text-md font-medium text-blue-400">Discussion</h4>
+                <div className="ml-4">
+                  {discussion.section && (
+                    <p className="text-sm text-gray-400">Section: {discussion.section}</p>
+                  )}
+                  {discussion.instructors && (
+                    <p className="text-sm text-gray-400">
+                      Instructor:{' '}
+                      {Array.isArray(discussion.instructors)
+                        ? discussion.instructors.join(', ')
+                        : discussion.instructors}
+                    </p>
+                  )}
+                  {discussion.times &&
+                    discussion.times.map((time, idx) => (
+                      <div key={idx} className="text-sm text-gray-400">
+                        {time.days && <p>Days: {time.days}</p>}
+                        {time.start && time.end && <p>Time: {time.start} - {time.end}</p>}
+                        {time.building && time.room && (
+                          <p>Location: {time.building} {time.room}</p>
+                        )}
+                      </div>
+                    ))}
+                  {discussion.enrollment_total !== undefined && (
+                    <div className="mt-2 space-y-2">
+                      {/* Enrollment Bar */}
+                      <div>
+                        <div className="flex justify-between text-xs text-gray-400 mb-1">
+                          <span>
+                            Enrollment: {discussion.enrollment_total}/{discussion.enrollment_cap}
+                          </span>
+                          <span>
+                            {Math.round(getEnrollmentPercentage(
+                              discussion.enrollment_total,
+                              discussion.enrollment_cap
+                            ))}
+                            %
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-600 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full ${getEnrollmentColor(
+                              getEnrollmentPercentage(
+                                discussion.enrollment_total,
+                                discussion.enrollment_cap
+                              )
+                            )}`}
+                            style={{
+                              width: `${getEnrollmentPercentage(
+                                discussion.enrollment_total,
+                                discussion.enrollment_cap
+                              )}%`
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Waitlist Bar */}
+                      {discussion.waitlist_total > 0 && (
+                        <div>
+                          <div className="flex justify-between text-xs text-gray-400 mb-1">
+                            <span>
+                              Waitlist: {discussion.waitlist_total}/{discussion.waitlist_cap}
+                            </span>
+                            <span>
+                              {Math.round(getEnrollmentPercentage(
+                                discussion.waitlist_total,
+                                discussion.waitlist_cap
+                              ))}
+                              %
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-600 rounded-full h-2">
+                            <div
+                              className="h-2 rounded-full bg-purple-500"
+                              style={{
+                                width: `${getEnrollmentPercentage(
+                                  discussion.waitlist_total,
+                                  discussion.waitlist_cap
+                                )}%`
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
-              ))}
-            {discussion.enrollment_total !== undefined && (
-              <div className="mt-2 space-y-2">
-                {/* Enrollment Bar */}
-                <div>
-                  <div className="flex justify-between text-xs text-gray-400 mb-1">
-                    <span>
-                      Enrollment: {discussion.enrollment_total}/{discussion.enrollment_cap}
-                    </span>
-                    <span>
-                      {Math.round(getEnrollmentPercentage(
-                        discussion.enrollment_total,
-                        discussion.enrollment_cap
-                      ))}
-                      %
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-600 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full ${getEnrollmentColor(
-                        getEnrollmentPercentage(
-                          discussion.enrollment_total,
-                          discussion.enrollment_cap
-                        )
-                      )}`}
-                      style={{
-                        width: `${getEnrollmentPercentage(
-                          discussion.enrollment_total,
-                          discussion.enrollment_cap
-                        )}%`
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Waitlist Bar */}
-                {discussion.waitlist_total > 0 && (
-                  <div>
-                    <div className="flex justify-between text-xs text-gray-400 mb-1">
-                      <span>
-                        Waitlist: {discussion.waitlist_total}/{discussion.waitlist_cap}
-                      </span>
-                      <span>
-                        {Math.round(getEnrollmentPercentage(
-                          discussion.waitlist_total,
-                          discussion.waitlist_cap
-                        ))}
-                        %
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-600 rounded-full h-2">
-                      <div
-                        className="h-2 rounded-full bg-purple-500"
-                        style={{
-                          width: `${getEnrollmentPercentage(
-                            discussion.waitlist_total,
-                            discussion.waitlist_cap
-                          )}%`
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
             )}
-          </div>
-        </div>
-      )}
-    </motion.div>
+          </motion.div>
+        </Tooltip.Trigger>
+        <Tooltip.Portal>
+          <Tooltip.Content
+            className="bg-gray-800 text-white p-3 rounded-lg shadow-lg max-w-md text-sm"
+            sideOffset={5}
+          >
+            {loading ? 'Loading...' : description}
+            <Tooltip.Arrow className="fill-gray-800" />
+          </Tooltip.Content>
+        </Tooltip.Portal>
+      </Tooltip.Root>
+    </Tooltip.Provider>
   );
 };
 
