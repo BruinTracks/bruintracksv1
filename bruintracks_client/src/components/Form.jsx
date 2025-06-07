@@ -793,24 +793,36 @@ const SummaryView = ({
       return;
     }
 
-    const { error } = await supabase.from('profiles').insert([
-      {
-        profile_id: session.user.id,
-        complete: true,
-        full_name: "hi",
-        created_at: "hi"
-      },
-    ]);
+    // Check if profile already exists
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('profile_id')
+      .eq('profile_id', session.user.id)
+      .single();
 
-    if (error) {
-      console.error(error);
-    } else {
-      navigate('/Home');
+    // Only create profile if it doesn't exist
+    if (!existingProfile) {
+      const { error } = await supabase.from('profiles').insert([
+        {
+          profile_id: session.user.id,
+          complete: true,
+          full_name: "hi",
+          created_at: "hi"
+        },
+      ]);
+
+      if (error) {
+        console.error(error);
+        return;
+      }
     }
+
+    navigate('/Home');
   };
 
   const handleGenerateSchedule = async () => {
     try {
+      handleCreateProfile();
       console.log("Starting schedule generation...");
       console.log("Current session:", session); // Debug log
       
@@ -861,7 +873,16 @@ const SummaryView = ({
         // Convert from "COM SCI|31" format to "COM SCI 31" format
         return course.replace('|', ' ');
       });
-      console.log("Completed courses:", completedCourses);
+
+      const formattedTranscript = Object.fromEntries(
+        Object.entries(data.transcript || {}).map(([course, grade]) => {
+          const parts = course.split(' ');
+          const catalogNumber = parts.pop();
+          const subject = parts.join(' ');
+          return [`${subject}|${catalogNumber}`, grade];
+        })
+      );
+      console.log("Completed courses:", formattedTranscript);
 
       console.log("Calling get-courses-to-schedule endpoint...");
       // Call the get-courses-to-schedule endpoint
@@ -873,7 +894,7 @@ const SummaryView = ({
         },
         body: JSON.stringify({ 
           jsonData: processedRequirements,
-          transcript: completedCourses,
+          transcript: data.transcript,
           grad_year: data.gradYear,
           grad_quarter: data.gradQuarter,
           preferences: {

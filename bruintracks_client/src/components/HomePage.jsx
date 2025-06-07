@@ -6,8 +6,10 @@ import { Chatbox } from './Chatbox.jsx';
 import { FullCoursePlan } from './FullCoursePlan.jsx';
 import { handleSignOut } from '../supabaseClient.js';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../AuthContext.jsx';
+import { supabase } from '../supabaseClient.js';
 
-const CourseCard = ({ course, courseData, isFirstTerm }) => {
+export const CourseCard = ({ course, courseData, isFirstTerm }) => {
   console.log("Rendering CourseCard for:", course, "with data:", courseData);
 
   // Clean course name by replacing "|" with a space
@@ -185,7 +187,7 @@ const CourseCard = ({ course, courseData, isFirstTerm }) => {
   );
 };
 
-const QuarterSchedule = ({ quarter, courses, isFirstTerm }) => {
+export const QuarterSchedule = ({ quarter, courses, isFirstTerm }) => {
   console.log(`Rendering QuarterSchedule for ${quarter}:`, courses);
   
   // If courses is not an array or object, return null
@@ -215,7 +217,7 @@ const QuarterSchedule = ({ quarter, courses, isFirstTerm }) => {
   );
 };
 
-const ScheduleSummary = ({ scheduleData }) => {
+export const ScheduleSummary = ({ scheduleData }) => {
   console.log("Rendering ScheduleSummary with data:", scheduleData);
   
   const totalCourses = Object.values(scheduleData).reduce((acc, quarter) => {
@@ -518,6 +520,7 @@ export const WeeklyCalendar = ({ courses }) => {
 
 export const HomePage = () => {
   const navigate = useNavigate();
+  const { session } = useAuth();
   const [scheduleData, setScheduleData] = useState(null);
   const [unscheduledCourses, setUnscheduledCourses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -538,34 +541,78 @@ export const HomePage = () => {
   useEffect(() => {
     console.log("HomePage component mounted");
     
-    const loadScheduleData = () => {
-      console.log("Starting to load schedule data from localStorage...");
-      const storedSchedule = localStorage.getItem('scheduleData');
+    // Helper function to convert quarter string to sortable number
+    const quarterToSortValue = (quarterStr) => {
+      const [quarter, yearStr] = quarterStr.split(' ');
+      const year = parseInt(yearStr);
+      // Adjust year for Fall quarter since it comes before Winter/Spring of next year
+      // e.g., Fall 2024 should come before Winter 2025
+      if (quarter === 'Fall') {
+        return year * 10;
+      } else if (quarter === 'Winter') {
+        return (year - 1) * 10 + 1;
+      } else if (quarter === 'Spring') {
+        return (year - 1) * 10 + 2;
+      } else { // Summer
+        return (year - 1) * 10 + 3;
+      }
+    };
+
+    // Helper function to sort quarters
+    const sortQuarters = (schedule) => {
+      const sortedEntries = Object.entries(schedule).sort((a, b) => {
+        return quarterToSortValue(a[0]) - quarterToSortValue(b[0]);
+      });
+      return Object.fromEntries(sortedEntries);
+    };
+
+    const loadScheduleData = async () => {
+      console.log("Starting to fetch most recent schedule from Supabase...");
       
-      if (!storedSchedule) {
-        console.log("No schedule data found in localStorage");
+      if (!session?.user?.id) {
+        console.log("No user session found");
         setLoading(false);
         return;
       }
 
-      console.log("Raw data from localStorage:", storedSchedule);
-
       try {
-        const data = JSON.parse(storedSchedule);
-        console.log("Successfully parsed schedule data:", data);
+        // Fetch the most recent schedule for the current user
+        const { data, error } = await supabase
+          .from('schedules')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (error) {
+          console.error("Error fetching schedule:", error);
+          setLoading(false);
+          return;
+        }
+
+        if (!data) {
+          console.log("No schedule found for user");
+          setLoading(false);
+          return;
+        }
+
+        console.log("Successfully fetched schedule data:", data);
         
-        if (!data.schedule || !data.schedule.schedule) {
+        // Extract schedule data and note from the response
+        const actualSchedule = data.schedule?.schedule;
+        const note = data.schedule?.note;
+
+        if (!actualSchedule) {
           console.error("Schedule data is missing the 'schedule' property:", data);
           setLoading(false);
           return;
         }
 
-        // Get the actual schedule data from the nested structure
-        const actualSchedule = data.schedule.schedule;
         console.log("Actual schedule data:", actualSchedule);
 
         // Get least_courses_per_term from preferences if available
-        if (data.schedule.preferences && data.schedule.preferences.least_courses_per_term) {
+        if (data.schedule?.preferences?.least_courses_per_term) {
           setLeastCoursesPerTerm(data.schedule.preferences.least_courses_per_term);
         }
 
@@ -607,30 +654,31 @@ export const HomePage = () => {
           }
         });
 
-        console.log("Cleaned schedule data:", cleanedSchedule);
-        setScheduleData(cleanedSchedule);
+        // Sort the quarters
+        const sortedSchedule = sortQuarters(cleanedSchedule);
+        console.log("Sorted and cleaned schedule data:", sortedSchedule);
+        setScheduleData(sortedSchedule);
 
-        if (data.schedule.note) {
-          console.log("Found note in schedule data:", data.schedule.note);
-          // Parse the note to get unscheduled courses with their reasons
-          const unscheduled = data.schedule.note
+        if (note) {
+          console.log("Found note in schedule data:", note);
+          // Parse the note to get unscheduled courses
+          const unscheduled = note
             .replace('Unable to schedule: ', '')
-            .split('; ')
+            .split(', ')
             .map(course => course.trim());
           console.log("Parsed unscheduled courses:", unscheduled);
           setUnscheduledCourses(unscheduled);
         }
       } catch (error) {
-        console.error("Error parsing schedule data:", error);
+        console.error("Error loading schedule:", error);
         console.error("Error stack:", error.stack);
-        console.error("Raw data that caused the error:", storedSchedule);
       } finally {
         setLoading(false);
       }
     };
 
     loadScheduleData();
-  }, [leastCoursesPerTerm]);
+  }, [session, leastCoursesPerTerm]);
 
   // Add a debug button to reload schedule data
   const reloadSchedule = () => {
@@ -722,12 +770,20 @@ export const HomePage = () => {
           </motion.h1>
           <div className="flex gap-4">
             <motion.button
-              onClick={reloadSchedule}
+              onClick={() => navigate('/form')}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              Reload Schedule
+              Take me back to the form
+            </motion.button>
+            <motion.button
+              onClick={() => navigate('/saved-schedules')}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              View Saved Schedules
             </motion.button>
             <motion.button 
               onClick={onSignOut}
@@ -743,13 +799,16 @@ export const HomePage = () => {
         {/* Schedule Summary */}
         <ScheduleSummary scheduleData={scheduleData} />
 
-        {/* Weekly Calendar - only show for first term */}
+        {/* Weekly Calendar - show for earliest quarter */}
         {scheduleData && Object.entries(scheduleData)[0] && (
-          <WeeklyCalendar courses={Object.entries(scheduleData)[0][1]} />
+          <WeeklyCalendar 
+            courses={Object.entries(scheduleData)[0][1]} 
+            key={Object.entries(scheduleData)[0][0]} // Add key to force re-render when quarter changes
+          />
         )}
 
         {/* Quarter Schedules */}
-        {Object.entries(scheduleData)
+        {scheduleData && Object.entries(scheduleData)
           .filter(([_, courses]) => {
             if (Array.isArray(courses)) {
               return courses.length > 0 && courses[0] !== 'FILLER';
