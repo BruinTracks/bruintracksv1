@@ -6,6 +6,10 @@ from datetime import datetime
 from dotenv import load_dotenv
 from supabase import create_client
 
+def debug_print(*args, **kwargs):
+    """Print debug information to stderr."""
+    print(*args, file=sys.stderr, **kwargs)
+
 # ───── CONFIGURATION ─────
 load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -13,11 +17,11 @@ SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
 
 class ScheduleEditor:
     def __init__(self, schedule: Dict, transcript: Dict[str, str], preferences: Dict):
-        print("\n=== Initializing Schedule Editor ===")
-        print(f"Initial Schedule: {json.dumps(schedule, indent=2)}")
-        print(f"Transcript: {json.dumps(transcript, indent=2)}")
-        print(f"Preferences: {json.dumps(preferences, indent=2)}")
-        print("=====================================\n")
+        debug_print("\n=== Initializing Schedule Editor ===")
+        debug_print(f"Initial Schedule: {json.dumps(schedule, indent=2)}")
+        debug_print(f"Transcript: {json.dumps(transcript, indent=2)}")
+        debug_print(f"Preferences: {json.dumps(preferences, indent=2)}")
+        debug_print("=====================================\n")
         
         self.schedule = schedule
         self.transcript = transcript
@@ -30,44 +34,65 @@ class ScheduleEditor:
         
     def _get_course_data(self, course_id: str) -> Optional[Dict]:
         """Fetch course data from Supabase or cache."""
-        print(f"\n🔍 Fetching data for course: {course_id}")
+        debug_print(f"\n🔍 Fetching data for course: {course_id}")
         
-        if course_id in self._course_cache:
-            print("✓ Found in cache")
-            return self._course_cache[course_id]
-            
-        subject_code, number = course_id.split('|')
-        print(f"Looking up: Subject={subject_code}, Number={number}")
-        
-        # First, get the subject ID from the subjects table
-        subject_result = self.supabase.table("subjects").select("id").eq("code", subject_code).execute()
-        if not subject_result.data:
-            print(f"❌ Subject {subject_code} not found in database")
+        # Special handling for FILLER courses and electives
+        if course_id == "FILLER" or "Elective" in course_id:
+            debug_print("✓ Skipping validation for FILLER/Elective course")
             return None
             
-        subject_id = subject_result.data[0]['id']
-        print(f"Found subject ID: {subject_id}")
-        
-        # Now get the course data using the numeric subject ID
-        result = self.supabase.table("courses").select("*").eq("subject_id", subject_id).eq("catalog_number", number).execute()
-        
-        if result.data:
-            print("✓ Found course data in database")
-            self._course_cache[course_id] = result.data[0]
-            return result.data[0]
+        if course_id in self._course_cache:
+            debug_print("✓ Found in cache")
+            return self._course_cache[course_id]
             
-        print("❌ Course not found in database")
-        return None
+        try:
+            subject_code, number = course_id.split('|')
+            debug_print(f"Looking up: Subject={subject_code}, Number={number}")
+            
+            # First, get the subject ID from the subjects table
+            subject_result = self.supabase.table("subjects").select("id").eq("code", subject_code).execute()
+            if not subject_result.data:
+                debug_print(f"❌ Subject {subject_code} not found in database")
+                return None
+            
+            subject_id = subject_result.data[0]['id']
+            debug_print(f"Found subject ID: {subject_id}")
+            
+            # Now get the course data using the numeric subject ID
+            result = self.supabase.table("courses").select("*").eq("subject_id", subject_id).eq("catalog_number", number).execute()
+            
+            if result.data:
+                debug_print("✓ Found course data in database")
+                self._course_cache[course_id] = result.data[0]
+                return result.data[0]
+            
+            debug_print("❌ Course not found in database")
+            return None
+        except ValueError:
+            debug_print(f"❌ Invalid course ID format: {course_id}")
+            return None
 
     def _get_prerequisites(self, course_id: str) -> List[List[Tuple[str, str, str, str]]]:
         """Get prerequisites for a course in DNF form."""
+        debug_print(f"\n🔍 Looking up prerequisites for {course_id}")
+        
         if course_id in self._prereq_cache:
+            debug_print("✓ Found in prerequisite cache")
             return self._prereq_cache[course_id]
-            
+        
         course_data = self._get_course_data(course_id)
-        if not course_data or not course_data.get("course_requisites"):
+        debug_print(f"Course data: {json.dumps(course_data, indent=2)}")
+        
+        if not course_data:
+            debug_print("❌ No course data found")
             return []
-            
+        
+        if not course_data.get("course_requisites"):
+            debug_print("❌ No prerequisites defined in course data")
+            return []
+        
+        debug_print(f"Raw prerequisite data: {json.dumps(course_data['course_requisites'], indent=2)}")
+        
         def to_dnf(node: Dict) -> List[List[Dict]]:
             if 'and' in node:
                 prods = to_dnf(node['and'][0])
@@ -80,92 +105,124 @@ class ScheduleEditor:
                     res.extend(to_dnf(child))
                 return res
             return [[node]]
-            
+        
         prereqs = []
         for clause in to_dnf(course_data["course_requisites"]):
+            debug_print(f"\nProcessing prerequisite clause: {json.dumps(clause, indent=2)}")
             prereq_clause = []
             for req in clause:
                 if 'course' not in req:
+                    debug_print(f"Skipping non-course requirement: {json.dumps(req, indent=2)}")
                     continue
                     
                 # Extract department and number using right-most split
                 # This handles department names with spaces (e.g., "COM SCI 31")
                 course_parts = req['course'].strip().rsplit(' ', 1)
                 if len(course_parts) != 2:
-                    print(f"Warning: Invalid course format in prerequisites: {req['course']}")
+                    debug_print(f"Warning: Invalid course format in prerequisites: {req['course']}")
                     continue
                     
                 dept, num = course_parts
+                debug_print(f"Looking up subject code for department: {dept}")
                 # Look up the subject code for the department name
                 subject_result = self.supabase.table("subjects").select("code").ilike("name", f"{dept}%").execute()
                 if not subject_result.data:
-                    print(f"Warning: Could not find subject code for department: {dept}")
+                    debug_print(f"Warning: Could not find subject code for department: {dept}")
                     continue
                     
                 subject_code = subject_result.data[0]['code']
+                debug_print(f"Found subject code: {subject_code}")
                 prereq_clause.append((
                     f"{subject_code}|{num}",
                     req.get('relation', 'prerequisite'),
                     req.get('min_grade', 'D-'),
                     req.get('severity', 'R')
                 ))
+                debug_print(f"Added prerequisite: {subject_code}|{num}")
+                
             if prereq_clause:
                 prereqs.append(prereq_clause)
+                debug_print(f"Added clause: {prereq_clause}")
                 
         self._prereq_cache[course_id] = prereqs
+        debug_print(f"\nFinal prerequisites for {course_id}: {prereqs}")
         return prereqs
 
     def _meets_prerequisites(self, course_id: str, term: str) -> bool:
         """Check if prerequisites are met for a course in a given term."""
-        print(f"\n🔍 Checking prerequisites for {course_id} in term {term}")
+        debug_print(f"\n🔍 Checking prerequisites for {course_id} in term {term}")
+        
+        # Skip prerequisite check for FILLER courses and electives
+        if course_id == "FILLER" or "Elective" in course_id:
+            debug_print("✓ Skipping prerequisite check for FILLER/Elective course")
+            return True
         
         prereqs = self._get_prerequisites(course_id)
         if not prereqs:
-            print("✓ No prerequisites found")
+            debug_print("✓ No prerequisites found")
             return True
             
         # Get all courses taken before this term
         taken_courses = set(self.transcript.keys())
-        print(f"Courses from transcript: {taken_courses}")
+        debug_print(f"Courses from transcript: {taken_courses}")
         
         term_order = list(self.schedule.keys())
         current_term_idx = term_order.index(term)
         
+        # Only look at courses from terms STRICTLY BEFORE the current term
         for prev_term_idx in range(current_term_idx):
             prev_term = term_order[prev_term_idx]
-            print(f"\nChecking courses from previous term: {prev_term}")
-            for course in self.schedule[prev_term]:
-                if isinstance(self.schedule[prev_term], dict):
-                    taken_courses.add(course)
-                else:
-                    taken_courses.add(course['course'])
+            debug_print(f"\nChecking courses from previous term: {prev_term}")
+            if isinstance(self.schedule[prev_term], dict):
+                # For dictionary format, add course IDs directly
+                # Skip FILLER courses
+                taken_courses.update(cid for cid in self.schedule[prev_term].keys() if cid != "FILLER")
+            else:
+                # For list format, add course IDs directly
+                # Skip FILLER courses
+                taken_courses.update(cid for cid in self.schedule[prev_term] if cid != "FILLER")
         
-        print(f"All courses taken before {term}: {taken_courses}")
+        debug_print(f"All courses taken before {term}: {taken_courses}")
                     
         # Check if any prerequisite clause is satisfied
         for clause in prereqs:
-            print(f"\nChecking prerequisite clause: {clause}")
+            debug_print(f"\nChecking prerequisite clause: {clause}")
             clause_satisfied = True
             for prereq, rel_type, min_grade, severity in clause:
                 # Skip MATH 1 prerequisite check
                 if prereq == "MATH|1":
-                    print(f"✓ Skipping MATH 1 prerequisite check")
+                    debug_print(f"✓ Skipping MATH 1 prerequisite check")
                     continue
                     
                 if severity == 'W' and self.preferences.get('allow_warnings', False):
-                    print(f"Skipping warning prerequisite {prereq} (warnings allowed)")
+                    debug_print(f"Skipping warning prerequisite {prereq} (warnings allowed)")
                     continue
+                    
+                # Check if prerequisite is in current term
+                if isinstance(self.schedule[term], dict):
+                    current_term_courses = set(cid for cid in self.schedule[term].keys() if cid != "FILLER")
+                else:
+                    current_term_courses = set(cid for cid in self.schedule[term] if cid != "FILLER")
+                    
+                # If prerequisite is in current term, it's not satisfied
+                if prereq in current_term_courses:
+                    debug_print(f"❌ Prerequisite {prereq} cannot be taken in the same term")
+                    clause_satisfied = False
+                    break
+                    
+                # Check if prerequisite was taken in earlier terms
                 if prereq not in taken_courses:
-                    print(f"❌ Missing prerequisite: {prereq}")
+                    debug_print(f"❌ Missing prerequisite: {prereq}")
                     clause_satisfied = False
                     break
                 else:
-                    print(f"✓ Found prerequisite: {prereq}")
+                    debug_print(f"✓ Found prerequisite: {prereq}")
+                
             if clause_satisfied:
-                print("✓ Prerequisites satisfied!")
+                debug_print("✓ Prerequisites satisfied!")
                 return True
                 
-        print("❌ No prerequisite clauses satisfied")
+        debug_print("❌ No prerequisite clauses satisfied")
         return False
 
     def _check_time_conflict(self, section1: Dict, section2: Dict) -> bool:
@@ -187,34 +244,37 @@ class ScheduleEditor:
 
     def _validate_term_schedule(self, schedule: Dict) -> bool:
         """Validate a term's schedule for time conflicts."""
-        print("\n=== Validating Term Schedule ===")
-        print(f"Schedule to validate: {json.dumps(schedule, indent=2)}")
+        debug_print("\n=== Validating Term Schedule ===")
+        debug_print(f"Schedule to validate: {json.dumps(schedule, indent=2)}")
         
         # Extract all meeting times
         meetings = []
-        for course_data in schedule.values():
-            if isinstance(course_data, dict):
-                # Add lecture meetings
-                if 'lecture' in course_data and course_data['lecture']:
-                    for time in course_data['lecture'].get('times', []):
-                        meetings.append({
-                            'days': time['days'],
-                            'start': time['start'],
-                            'end': time['end'],
-                            'course': course_data['lecture'].get('section_code', 'Unknown')
-                        })
+        for course_id, course_data in schedule.items():
+            # Skip FILLER courses
+            if course_id == "FILLER" or not isinstance(course_data, dict):
+                continue
                 
-                # Add discussion meetings
-                if 'discussion' in course_data and course_data['discussion']:
-                    for time in course_data['discussion'].get('times', []):
-                        meetings.append({
-                            'days': time['days'],
-                            'start': time['start'],
-                            'end': time['end'],
-                            'course': course_data['discussion'].get('section_code', 'Unknown')
-                        })
+            # Add lecture meetings
+            if 'lecture' in course_data and course_data['lecture']:
+                for time in course_data['lecture'].get('times', []):
+                    meetings.append({
+                        'days': time['days'],
+                        'start': time['start'],
+                        'end': time['end'],
+                        'course': course_data['lecture'].get('section_code', 'Unknown')
+                    })
+            
+            # Add discussion meetings
+            if 'discussion' in course_data and course_data['discussion']:
+                for time in course_data['discussion'].get('times', []):
+                    meetings.append({
+                        'days': time['days'],
+                        'start': time['start'],
+                        'end': time['end'],
+                        'course': course_data['discussion'].get('section_code', 'Unknown')
+                    })
         
-        print(f"\nExtracted meetings: {json.dumps(meetings, indent=2)}")
+        debug_print(f"\nExtracted meetings: {json.dumps(meetings, indent=2)}")
         
         # Check for conflicts
         for i in range(len(meetings)):
@@ -229,35 +289,43 @@ class ScheduleEditor:
                 
                 # Check time overlap
                 if m1['start'] < m2['end'] and m2['start'] < m1['end']:
-                    print(f"❌ Found conflict:")
-                    print(f"  Section 1: {m1['course']} ({m1['days']} {m1['start']}-{m1['end']})")
-                    print(f"  Section 2: {m2['course']} ({m2['days']} {m2['start']}-{m2['end']})")
+                    debug_print(f"❌ Found conflict:")
+                    debug_print(f"  Section 1: {m1['course']} ({m1['days']} {m1['start']}-{m1['end']})")
+                    debug_print(f"  Section 2: {m2['course']} ({m2['days']} {m2['start']}-{m2['end']})")
                     return False
         
-        print("✓ No conflicts found")
-        print("=== Validation Complete ===\n")
+        debug_print("✓ No conflicts found")
+        debug_print("=== Validation Complete ===\n")
         return True
 
     def _validate_prerequisites_for_term(self, term: str) -> Tuple[bool, Optional[str]]:
         """Check prerequisites for all courses in a term."""
-        print(f"\n🔍 Validating prerequisites for all courses in {term}")
+        debug_print(f"\n🔍 Validating prerequisites for all courses in {term}")
         for course_id in self.schedule[term]:
+            # Skip FILLER courses
+            if course_id == "FILLER":
+                continue
             if not self._meets_prerequisites(course_id, term):
                 return False, f"Prerequisites not met for {course_id} in {term}"
         return True, None
 
     def _validate_prerequisites_after_term(self, start_term: str) -> Tuple[bool, Optional[str]]:
-        """Check prerequisites for all courses in and after the given term."""
-        print(f"\n🔍 Validating prerequisites for all terms starting from {start_term}")
+        """Check prerequisites for all courses in all terms, starting from the first quarter."""
+        debug_print(f"\n🔍 Validating prerequisites for all terms")
         term_order = list(self.schedule.keys())
-        start_idx = term_order.index(start_term)
         
-        # Check each term from start_term onwards
-        for term_idx in range(start_idx, len(term_order)):
+        # Always start from the first term
+        for term_idx in range(len(term_order)):
             term = term_order[term_idx]
-            valid, message = self._validate_prerequisites_for_term(term)
-            if not valid:
-                return False, message
+            debug_print(f"\n🔍 Checking all courses in {term}")
+            if isinstance(self.schedule[term], dict):
+                courses = [cid for cid in self.schedule[term].keys() if cid != "FILLER"]
+            else:
+                courses = [cid for cid in self.schedule[term] if cid != "FILLER"]
+            
+            for course_id in courses:
+                if not self._meets_prerequisites(course_id, term):
+                    return False, f"Prerequisites not met for {course_id} in {term}"
         return True, None
 
     def move_course(self, course_id: str, from_term: str, to_term: str) -> Tuple[bool, str]:
@@ -269,18 +337,33 @@ class ScheduleEditor:
         if from_term not in self.schedule or to_term not in self.schedule:
             return False, "Invalid terms specified"
             
-        # Validate course exists
-        if course_id not in self.schedule[from_term]:
-            return False, "Course not found in specified term"
-            
+        # Validate course exists in source term
+        if isinstance(self.schedule[from_term], dict):
+            if course_id not in self.schedule[from_term]:
+                return False, "Course not found in specified term"
+            course_data = self.schedule[from_term][course_id]
+        else:  # List format
+            if course_id not in self.schedule[from_term]:
+                return False, "Course not found in specified term"
+            course_data = course_id  # For list format, just store the course ID
+        
         # Create temporary schedule to validate
         temp_schedule = {**self.schedule}
-        temp_schedule[to_term] = {**self.schedule[to_term]}
-        temp_schedule[from_term] = {**self.schedule[from_term]}
         
-        # Move course in temporary schedule
-        temp_schedule[to_term][course_id] = self.schedule[from_term][course_id]
-        del temp_schedule[from_term][course_id]
+        # Handle source term
+        if isinstance(self.schedule[from_term], dict):
+            temp_schedule[from_term] = {**self.schedule[from_term]}
+            del temp_schedule[from_term][course_id]
+        else:  # List format
+            temp_schedule[from_term] = [c for c in self.schedule[from_term] if c != course_id]
+        
+        # Handle destination term
+        if isinstance(self.schedule[to_term], dict):
+            temp_schedule[to_term] = {**self.schedule[to_term]}
+            temp_schedule[to_term][course_id] = course_data
+        else:  # List format
+            temp_schedule[to_term] = [*self.schedule[to_term]]
+            temp_schedule[to_term].append(course_id)
         
         # Store original schedule
         original_schedule = {**self.schedule}
@@ -297,13 +380,15 @@ class ScheduleEditor:
             self.schedule = original_schedule
             return False, message
             
-        # Validate term schedule
-        if not self._validate_term_schedule(temp_schedule[to_term]):
-            # Restore original schedule
-            self.schedule = original_schedule
-            return False, "Time conflict in new term"
+        # Validate term schedule if destination is earliest quarter (has detailed info)
+        if to_term == min(self.schedule.keys()) and isinstance(temp_schedule[to_term], dict):
+            if not self._validate_term_schedule(temp_schedule[to_term]):
+                # Restore original schedule
+                self.schedule = original_schedule
+                return False, "Time conflict in new term"
             
         # If all validations pass, keep the changes
+        self.schedule = temp_schedule
         return True, "Move successful"
 
     def swap_courses(self, course1_id: str, term1: str, course2_id: str, term2: str) -> Tuple[bool, str]:
@@ -363,56 +448,56 @@ class ScheduleEditor:
         Attempt to change the section (lecture and/or discussion) for a course.
         Returns (success, message).
         """
-        print(f"\n=== Attempting Section Change ===")
-        print(f"Course: {course_id}")
-        print(f"Term: {term}")
-        print(f"New Lecture ID: {new_lecture_id}")
-        print(f"New Discussion ID: {new_discussion_id}")
+        debug_print(f"\n=== Attempting Section Change ===")
+        debug_print(f"Course: {course_id}")
+        debug_print(f"Term: {term}")
+        debug_print(f"New Lecture ID: {new_lecture_id}")
+        debug_print(f"New Discussion ID: {new_discussion_id}")
         
         if term not in self.schedule or course_id not in self.schedule[term]:
-            print("❌ Course not found in specified term")
+            debug_print("❌ Course not found in specified term")
             return False, "Course not found in specified term"
             
         # Get current course data
         course_data = self.schedule[term][course_id]
-        print(f"\nCurrent course data: {json.dumps(course_data, indent=2)}")
+        debug_print(f"\nCurrent course data: {json.dumps(course_data, indent=2)}")
         
         temp_course_data = {**course_data}
         
         # Fetch new section data from Supabase
         if new_lecture_id:
-            print(f"\nFetching new lecture data (ID: {new_lecture_id})")
+            debug_print(f"\nFetching new lecture data (ID: {new_lecture_id})")
             result = self.supabase.table("sections").select("*").eq("id", new_lecture_id).execute()
             if not result.data:
-                print("❌ Invalid lecture section ID")
+                debug_print("❌ Invalid lecture section ID")
                 return False, "Invalid lecture section ID"
             temp_course_data['lecture'] = result.data[0]
-            print(f"New lecture data: {json.dumps(result.data[0], indent=2)}")
+            debug_print(f"New lecture data: {json.dumps(result.data[0], indent=2)}")
             
         if new_discussion_id:
-            print(f"\nFetching new discussion data (ID: {new_discussion_id})")
+            debug_print(f"\nFetching new discussion data (ID: {new_discussion_id})")
             result = self.supabase.table("sections").select("*").eq("id", new_discussion_id).execute()
             if not result.data:
-                print("❌ Invalid discussion section ID")
+                debug_print("❌ Invalid discussion section ID")
                 return False, "Invalid discussion section ID"
             temp_course_data['discussion'] = result.data[0]
-            print(f"New discussion data: {json.dumps(result.data[0], indent=2)}")
+            debug_print(f"New discussion data: {json.dumps(result.data[0], indent=2)}")
             
         # Create temporary schedule to validate
         temp_schedule = {**self.schedule[term]}
         temp_schedule[course_id] = temp_course_data
         
-        print("\nValidating temporary schedule...")
+        debug_print("\nValidating temporary schedule...")
         # Validate term
         if not self._validate_term_schedule(temp_schedule):
-            print("❌ Time conflict with new section(s)")
+            debug_print("❌ Time conflict with new section(s)")
             return False, "Time conflict with new section(s)"
             
         # If validation passes, update the section
-        print("✓ Validation passed, updating schedule")
+        debug_print("✓ Validation passed, updating schedule")
         self.schedule[term][course_id] = temp_course_data
-        print(f"\nUpdated course data: {json.dumps(self.schedule[term][course_id], indent=2)}")
-        print("=== Section Change Complete ===\n")
+        debug_print(f"\nUpdated course data: {json.dumps(self.schedule[term][course_id], indent=2)}")
+        debug_print("=== Section Change Complete ===\n")
         return True, "Section change successful"
 
 def main():

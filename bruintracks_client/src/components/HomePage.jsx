@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import '../index.css';
 import '../App.css';
 import { motion } from 'framer-motion';
-import { Chatbox } from './Chatbox.jsx';
+import { Chatbox } from './Chatbox';
 import { FullCoursePlan } from './FullCoursePlan.jsx';
 import { handleSignOut } from '../supabaseClient.js';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,7 @@ import { supabase } from '../supabaseClient.js';
 import GoogleCalendarButton from './GoogleCalendarButton';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { useCourseDescription } from '../hooks/useCourseDescription';
+import { ScheduleEditChat } from './ScheduleEditChat';
 
 export const CourseCard = ({ course, courseData, isFirstTerm }) => {
   const { description, loading } = useCourseDescription(course);
@@ -704,10 +705,16 @@ export const HomePage = () => {
   const [leastCoursesPerTerm, setLeastCoursesPerTerm] = useState(3);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isScheduleEditorOpen, setIsScheduleEditorOpen] = useState(false);
 
   const handleChatButtonClick = () => {
     console.log('Chat button clicked');
     setIsChatOpen(true);
+  };
+
+  const handleScheduleEditorClick = () => {
+    console.log('Schedule editor button clicked');
+    setIsScheduleEditorOpen(true);
   };
 
   // Clean course name by replacing "|" with a space
@@ -1101,27 +1108,52 @@ export const HomePage = () => {
           </motion.div>
         )}
 
-        {/* Floating Chat Button */}
-        <button
-          onClick={handleChatButtonClick}
-          className="fixed bottom-6 right-6 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-200 z-50"
-          aria-label="Open chat"
-        >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
+        {/* Floating Chat Buttons */}
+        <div className="fixed bottom-6 flex justify-between w-full px-6">
+          {/* Edit Button (Left Side) */}
+          <button
+            onClick={handleScheduleEditorClick}
+            className="bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-200 z-50"
+            aria-label="Open schedule editor"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 01-2 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-            />
-          </svg>
-        </button>
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+              />
+            </svg>
+          </button>
+
+          {/* Chat Button (Right Side) */}
+          <button
+            onClick={handleChatButtonClick}
+            className="bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-200 z-50"
+            aria-label="Open chat"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+              />
+            </svg>
+          </button>
+        </div>
 
         {/* Chat Interface */}
         {isChatOpen && (
@@ -1139,26 +1171,6 @@ export const HomePage = () => {
                 </h3>
               </div>
               <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setIsChatOpen(false)}
-                  className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-gray-700 transition-colors"
-                  title="Minimize"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </button>
                 <button
                   onClick={() => setIsChatOpen(false)}
                   className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-gray-700 transition-colors"
@@ -1183,6 +1195,50 @@ export const HomePage = () => {
             </div>
             <div className="h-[calc(100%-4rem)] overflow-hidden">
               <Chatbox scheduleData={scheduleData} />
+            </div>
+          </motion.div>
+        )}
+
+        {/* Schedule Editor Interface */}
+        {isScheduleEditorOpen && (
+          <motion.div
+            className="fixed bottom-28 left-8 w-[400px] h-[600px] bg-gray-800 rounded-lg shadow-2xl z-50 border border-gray-700"
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+          >
+            <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-900 rounded-t-lg">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                <h3 className="text-lg font-semibold text-white">
+                  Schedule Editor
+                </h3>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setIsScheduleEditorOpen(false)}
+                  className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-gray-700 transition-colors"
+                  title="Close"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="h-[calc(100%-4rem)] overflow-hidden">
+              <ScheduleEditChat scheduleData={scheduleData} />
             </div>
           </motion.div>
         )}

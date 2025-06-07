@@ -58,6 +58,10 @@ export const Chatbox = ({ scheduleData }) => {
         throw new Error('No authentication token found. Please sign in again.');
       }
 
+      // Get schedule data from localStorage
+      const storedSchedule = localStorage.getItem('scheduleData');
+      const scheduleData = storedSchedule ? JSON.parse(storedSchedule).schedule.schedule : null;
+
       const response = await fetch('http://localhost:3000/api/query', {
         method: 'POST',
         headers: { 
@@ -81,6 +85,14 @@ export const Chatbox = ({ scheduleData }) => {
       if (data.error) {
         setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${data.error}` }]);
       } else {
+        // If the response includes a new schedule, update localStorage
+        if (data.schedule) {
+          const storedData = JSON.parse(localStorage.getItem('scheduleData'));
+          storedData.schedule.schedule = data.schedule;
+          localStorage.setItem('scheduleData', JSON.stringify(storedData));
+          // Trigger a page reload to reflect the schedule changes
+          window.location.reload();
+        }
         setMessages(prev => [...prev, { role: 'assistant', content: data.answer }]);
       }
     } catch (err) {
