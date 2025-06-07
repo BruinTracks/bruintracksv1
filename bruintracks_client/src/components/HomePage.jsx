@@ -712,6 +712,10 @@ export const HomePage = () => {
     setIsChatOpen(true);
   };
 
+  const onScheduleUpdate = (newSchedule) => {
+    setScheduleData(newSchedule);
+  };
+
   const handleScheduleEditorClick = () => {
     console.log('Schedule editor button clicked');
     setIsScheduleEditorOpen(true);
@@ -1238,7 +1242,7 @@ export const HomePage = () => {
               </div>
             </div>
             <div className="h-[calc(100%-4rem)] overflow-hidden">
-              <ScheduleEditChat scheduleData={scheduleData} />
+              <ScheduleEditChat scheduleData={scheduleData} onScheduleUpdate={onScheduleUpdate} />
             </div>
           </motion.div>
         )}

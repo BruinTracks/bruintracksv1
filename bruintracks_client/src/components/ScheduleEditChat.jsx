@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../AuthContext.jsx';
 import { motion } from 'framer-motion';
 
-export const ScheduleEditChat = ({ scheduleData }) => {
+export const ScheduleEditChat = ({ scheduleData, onScheduleUpdate }) => {
   const { session } = useAuth();
   const [messages, setMessages] = useState([
     {
@@ -102,7 +102,8 @@ export const ScheduleEditChat = ({ scheduleData }) => {
         console.log("Reloading page to reflect changes...");
         
         // Trigger a page reload to reflect the schedule changes
-        window.location.reload();
+        //window.location.reload();
+        onScheduleUpdate(cleanedSchedule);
       }
       console.log("=============================\n");
 
