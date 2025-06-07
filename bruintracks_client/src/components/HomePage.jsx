@@ -6,6 +6,7 @@ import { Chatbox } from './Chatbox.jsx';
 import { FullCoursePlan } from './FullCoursePlan.jsx';
 import { handleSignOut } from '../supabaseClient.js';
 import { useNavigate } from 'react-router-dom';
+import GoogleCalendarButton from './GoogleCalendarButton';
 
 const CourseCard = ({ course, courseData, isFirstTerm }) => {
   console.log("Rendering CourseCard for:", course, "with data:", courseData);
@@ -912,6 +913,7 @@ export const HomePage = () => {
             Your Schedule
           </motion.h1>
           <div className="flex gap-4">
+            <GoogleCalendarButton scheduleData={scheduleData} />
             <motion.button
               onClick={reloadSchedule}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
